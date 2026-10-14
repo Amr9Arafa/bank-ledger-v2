@@ -9,6 +9,10 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "empty": "No accounts yet."
+    "empty": "No accounts yet.",
+    "companyTotal": "Company total",
+    "bookBalance": "Book balance",
+    "bankBalance": "Bank balance",
+    "issuesCheques": "Issues cheques"
   }
 }

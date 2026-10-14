@@ -9,6 +9,10 @@
   },
   "dashboard": {
     "title": "لوحة التحكم",
-    "empty": "لا توجد حسابات بعد."
+    "empty": "لا توجد حسابات بعد.",
+    "companyTotal": "إجمالي الشركة",
+    "bookBalance": "الرصيد الدفتري",
+    "bankBalance": "رصيد البنك",
+    "issuesCheques": "يصدر شيكات"
   }
 }
