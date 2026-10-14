@@ -8,7 +8,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  /* Latin glyphs come from Geist, Arabic glyphs fall through to IBM Plex Sans Arabic. */
+  --font-sans: var(--font-geist-sans), var(--font-arabic), sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
@@ -22,5 +23,4 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

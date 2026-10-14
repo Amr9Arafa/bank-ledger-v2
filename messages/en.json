@@ -1,0 +1,14 @@
+{
+  "metadata": {
+    "title": "Bank Accounts Ledger",
+    "description": "Company bank account balances and movements"
+  },
+  "language": {
+    "label": "Language",
+    "switchTo": "العربية"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "empty": "No accounts yet."
+  }
+}

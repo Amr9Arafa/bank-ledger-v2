@@ -1,0 +1,14 @@
+{
+  "metadata": {
+    "title": "دفتر الحسابات البنكية",
+    "description": "أرصدة وحركات الحسابات البنكية للشركة"
+  },
+  "language": {
+    "label": "اللغة",
+    "switchTo": "English"
+  },
+  "dashboard": {
+    "title": "لوحة التحكم",
+    "empty": "لا توجد حسابات بعد."
+  }
+}
