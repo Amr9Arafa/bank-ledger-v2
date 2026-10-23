@@ -79,3 +79,18 @@ Reference implementation (v1, already working): https://github.com/Amr9Arafa/Ban
 - Enable RLS on every table (no policies): the publishable key can otherwise read data
   through Supabase's REST API. The server connects with `DATABASE_URL` and is unaffected.
 - `redirect()` works by throwing: call it outside `try/catch`.
+
+## Lessons from v2
+
+- `src/server` and `src/lib` use relative `.ts` imports (not `@/`) so `node --test` can load
+  them; ledger functions take an optional `database` argument so tests run them inside a
+  rolled-back transaction.
+- Node runs TypeScript by erasing types only: no parameter properties or enums
+  (`erasableSyntaxOnly` is on).
+- React resets a form after its action: return the submitted values and use them as
+  `defaultValue`, or the user's input disappears on a validation error.
+- A DB query alone does not make a page dynamic: something must read the request
+  (`cookies()` via `getCurrentUser()`), or Next prerenders it at build time.
+- A password with `%` must be URL-encoded (`%25`) inside `DATABASE_URL`.
+- Stopping `npm run dev` from a tool may leave the `node` server running on port 3000
+  with stale code: check `netstat -ano | findstr :3000` before trusting a restart.

@@ -20,17 +20,20 @@ GitHub (main branch) ──push──▶ Vercel builds and hosts the Next.js app
 - Migrations are **not** run by Vercel. You run them from your machine (see "Shipping
   changes").
 
-## Before the first deploy: access
+## Before the first deploy: Supabase Auth settings
 
-Until M4 (login) the app has no sign-in, so anyone with the URL can **view and change**
-data. Pick one:
+Every page requires sign-in, and only an admin creates logins (Settings → Users). Make
+sure nobody can create a login on their own:
 
-- **Temporary password gate (recommended):** a small check in `src/proxy.ts` that asks
-  for a username and password (HTTP Basic Auth) from an env var, removed in M4.
-- **Wait for M4** before deploying.
-- **Deploy anyway** and keep the URL private, with placeholder data only.
+1. Supabase → **Authentication → Sign In / Providers → Email**: keep Email enabled,
+   turn **off** "Allow new users to sign up". (Even if someone signs up, a login without
+   a profile in our `users` table gets "no access"; this setting is the first line.)
+2. Supabase → **Project Settings → API Keys**: copy the **secret key** (`sb_secret_…`).
+   Put it in `.env.local` as `SUPABASE_SECRET_KEY` and in Vercel (step 3). It lets the
+   server create users; it must never reach the browser.
 
-Never enter real company figures before M4, whichever you pick.
+Before entering real company figures: reset the database password (it was shared in a
+chat during setup) and update `DATABASE_URL` / `DATABASE_URL_MIGRATIONS` everywhere.
 
 ## 1. Push the code to GitHub
 
@@ -58,6 +61,7 @@ Copy the values from your `.env.local`.
 | Name | Value | Sensitive | Environments |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | Transaction pooler URL, port **6543** | **Yes** | Production, Preview |
+| `SUPABASE_SECRET_KEY` | `sb_secret_…` (creates users from Settings) | **Yes** | Production, Preview |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://<ref>.supabase.co` | No (public by design) | Production, Preview |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…` | No (public by design) | Production, Preview |
 
@@ -82,9 +86,11 @@ Project → **Settings → Functions → Function Region** → choose **Frankfur
 ## 5. Check it works
 
 1. Open the URL Vercel shows (`https://bank-ledger-v2-….vercel.app`). It redirects to
-   `/ar` and shows the dashboard with the seeded accounts.
-2. Click an account: the ledger opens.
-3. Switch to English and back.
+   `/ar/login`.
+2. Sign in with your admin login: the dashboard shows the seeded accounts.
+3. Click an account: the ledger opens. Switch to English and back.
+4. Settings → Users: add a test accountant, sign in as them in a private window, and
+   check that Settings is hidden for them.
 
 If something fails, open the deployment → **Logs** (runtime errors) or the build output
 (build errors), and compare with "Troubleshooting" below.

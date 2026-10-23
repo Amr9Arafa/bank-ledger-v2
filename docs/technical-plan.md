@@ -250,41 +250,41 @@ Each milestone ends with something the finance team can open and use.
 
 **M1: Skeleton** — done when the dashboard shows the 3 seeded accounts with opening balances, in English and Arabic.
 
-- [ ] Supabase project and `.env.local`
-- [ ] Drizzle setup; `schema.ts` for all five tables; first migration; RLS enabled
-- [ ] Seed: 1 organization, 1 admin user, 3 bank accounts (2 issue cheques)
-- [ ] next-intl with `/ar` and `/en`, `dir` on `<html>`, language switcher
-- [ ] `money.ts` with unit tests
-- [ ] Dashboard page reading balances with the SQL above
+- [x] Supabase project and `.env.local`
+- [x] Drizzle setup; `schema.ts` for all five tables; first migration; RLS enabled
+- [x] Seed: 1 organization, 1 admin user, 3 bank accounts (2 issue cheques)
+- [x] next-intl with `/ar` and `/en`, `dir` on `<html>`, language switcher
+- [x] `money.ts` with unit tests
+- [x] Dashboard page reading balances with the SQL above
 
 **M2: Transfers and other movements** — done when every non-cheque movement can be entered and appears in the ledger with a correct running balance.
 
-- [ ] Zod schemas and server actions for transfer in, deposit, fee
-- [ ] Internal transfer form with linked pair
-- [ ] Void action (voids both halves of an internal pair)
-- [ ] Account ledger page with running balance
-- [ ] Duplicate warning (FR-4)
-- [ ] Balance contract test
+- [x] Zod schemas and server actions for transfer in, deposit, fee
+- [x] Internal transfer form with linked pair
+- [x] Void action (voids both halves of an internal pair)
+- [x] Account ledger page with running balance
+- [x] Duplicate warning (FR-4)
+- [x] Balance contract test
 
 **M3: Cheques** — done when cheques can be issued, cleared and cancelled, and book vs bank balances differ by exactly the outstanding total.
 
-- [ ] Cheque form with suggested next number per account
-- [ ] Cheques page with Outstanding, Cleared, Cancelled tabs; due-in-7-days highlight
-- [ ] Clear and cancel actions
-- [ ] Dashboard shows book balance, bank balance, outstanding total
+- [x] Cheque form with suggested next number per account
+- [x] Cheques page with Outstanding, Cleared, Cancelled tabs; due-in-7-days highlight
+- [x] Clear and cancel actions
+- [x] Dashboard shows book balance, bank balance, outstanding total
 
 **M4: Auth, roles and audit** — done when real users sign in with the right permissions and every change is in the audit log.
 
-- [ ] Supabase Auth login, proxy, sessions
-- [ ] `requireRole()` on every action; hide buttons per role
-- [ ] Admin invite flow in Settings
-- [ ] Audit log writes inside every ledger function; admin-only audit view
-- [ ] Admin-only edit of cleared cheques
+- [x] Supabase Auth login, proxy, sessions
+- [x] `requireRole()` on every action; hide buttons per role
+- [x] Admin invite flow in Settings (built as: admin creates the login with a first password)
+- [x] Audit log writes inside every ledger function; admin-only audit view
+- [x] Admin-only edit of cleared cheques (built as: admin-only "Undo clear"; no edit feature, mistakes are voided or cancelled and re-entered)
 
 **M5: Polish and launch** — done when the first real month is entered and matches the bank statements.
 
-- [ ] Ledger filters and search; CSV export (UTF-8 with BOM so Excel shows Arabic)
-- [ ] Settings: manage bank accounts
+- [x] Ledger filters and search; CSV export (UTF-8 with BOM so Excel shows Arabic)
+- [x] Settings: manage bank accounts
 - [ ] Production deploy on Vercel
 - [ ] Enter opening balances and one month of real data; reconcile with the bank
 
