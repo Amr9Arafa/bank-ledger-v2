@@ -1,7 +1,7 @@
 // Zod schemas for form input. Every error message is a key under "errors" in messages/*.json.
 // Only shape and format live here; rules that need the database live in server/ledger.
 import { z } from "zod";
-import { toMinor } from "./money.ts";
+import { toMinor, toSignedMinor } from "./money.ts";
 
 // Amount typed by the user -> integer piasters.
 const amount = z.string({ error: "required" }).transform((input, ctx) => {
@@ -146,3 +146,71 @@ export const roleChangeSchema = z.object({
   userId: z.uuid({ message: "invalidUser" }),
   role: z.enum(["admin", "accountant", "viewer"], { message: "invalidRole" }),
 });
+
+// FR-11: ledger filters from the URL. Bad values are ignored rather than rejected.
+export const LEDGER_TYPES = ["transfer_in", "deposit", "fee", "internal", "cheque"] as const;
+// counted: in the book balance; outstanding: issued cheques; void: voided or cancelled.
+export const LEDGER_STATUSES = ["counted", "outstanding", "void"] as const;
+
+const ledgerFilterSchema = z.object({
+  from: day.optional().catch(undefined),
+  to: day.optional().catch(undefined),
+  type: z.enum(LEDGER_TYPES).optional().catch(undefined),
+  status: z.enum(LEDGER_STATUSES).optional().catch(undefined),
+  q: z
+    .string()
+    .trim()
+    .max(100)
+    .optional()
+    .catch(undefined)
+    .transform((s) => s || undefined),
+});
+// Every filter is optional: {} means the full ledger.
+export type LedgerFilters = Partial<z.infer<typeof ledgerFilterSchema>>;
+
+export function parseLedgerFilters(
+  searchParams: Record<string, string | string[] | undefined>,
+): LedgerFilters {
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  return ledgerFilterSchema.parse({
+    from: first(searchParams.from) || undefined,
+    to: first(searchParams.to) || undefined,
+    type: first(searchParams.type) || undefined,
+    status: first(searchParams.status) || undefined,
+    q: first(searchParams.q),
+  });
+}
+
+// Opening balance: zero or negative allowed (an account can start overdrawn).
+const signedAmount = z.string({ error: "required" }).transform((input, ctx) => {
+  const result = toSignedMinor(input);
+  if (!result.ok) {
+    ctx.addIssue({ code: "custom", message: result.error });
+    return z.NEVER;
+  }
+  return result.minor;
+});
+
+// HTML checkboxes send "on" when ticked and nothing otherwise.
+const checkbox = z
+  .string()
+  .optional()
+  .transform((v) => v === "on");
+
+// FR-1: an admin adds or edits a bank account.
+export const bankAccountSchema = z.object({
+  name: requiredText(100),
+  bankName: requiredText(100),
+  // Text, not a number: account numbers may have leading zeros, spaces or dashes.
+  accountNumber: z
+    .string({ error: "required" })
+    .trim()
+    .min(1, "required")
+    .max(40, "tooLong")
+    .regex(/^[0-9A-Za-z -]+$/, "invalidAccountNumber"),
+  openingBalanceMinor: signedAmount,
+  openingDate: day,
+  receivesTransfers: checkbox,
+  issuesCheques: checkbox,
+});
+export type BankAccountInput = z.infer<typeof bankAccountSchema>;

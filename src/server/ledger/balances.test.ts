@@ -108,7 +108,7 @@ test("book and bank balances and every running balance are exact", { skip }, asy
     assert.equal(balB.bankBalanceMinor, 20000);
 
     // Newest first; voided and cancelled rows keep the previous balance.
-    const ledger = await m.getAccountLedger(orgId, a.id, tx);
+    const ledger = await m.getAccountLedger(orgId, a.id, {}, tx);
     assert.deepEqual(
       ledger.map((r) => [r.transactionDate, r.type, r.status, r.runningBalanceMinor]),
       [
@@ -123,6 +123,22 @@ test("book and bank balances and every running balance are exact", { skip }, asy
       ],
     );
     assert.equal(ledger.find((r) => r.type === "internal_out")?.counterpartName, "B");
+
+    // Filters narrow the rows but keep each row's true running balance.
+    const filtered = async (f: Parameters<typeof m.getAccountLedger>[2]) =>
+      (await m.getAccountLedger(orgId, a.id, f, tx)).map((r) => [r.type, r.runningBalanceMinor]);
+    assert.deepEqual(await filtered({ type: "fee" }), [["fee", 147450]]);
+    assert.deepEqual(await filtered({ q: "2026-01-05" }), [["transfer_in", 150000]]);
+    assert.deepEqual(await filtered({ status: "outstanding" }), [["cheque", 97451]]);
+    assert.deepEqual(await filtered({ from: "2026-01-08", to: "2026-01-09" }), [
+      ["transfer_in", 127451],
+      ["internal_out", 127450],
+    ]);
+    assert.deepEqual(await filtered({ status: "void" }), [
+      ["cheque", 87451],
+      ["deposit", 147450],
+    ]);
+    assert.deepEqual(await filtered({ q: "50%" }), []); // wildcards are escaped
   });
 });
 
@@ -231,6 +247,60 @@ test("cheque lifecycle: issue, number rules, clear, cancel, undo clear", { skip 
     assert.equal(
       (await c.listCheques(orgId, "issued", tx))[0].dueDate,
       "2026-02-15",
+    );
+  });
+});
+
+test("bank accounts: opening date rule, archive rules, audit", { skip }, async () => {
+  const m = await load();
+  const ba = await import("./bankAccounts.ts");
+  const c = await import("./cheques.ts");
+  await inRollback(async (tx) => {
+    const orgId = crypto.randomUUID();
+    const user = { id: ADMIN_ID, organizationId: orgId };
+    await tx.insert(m.organizations).values({ id: orgId, name: "Contract test" });
+    const input = {
+      name: "New", bankName: "Bank", accountNumber: "001", openingBalanceMinor: -5000,
+      openingDate: "2026-03-01", receivesTransfers: true, issuesCheques: true,
+    };
+    const { id } = await ba.createBankAccount(user, input, tx);
+    const code = async (fn: () => Promise<unknown>) => {
+      try {
+        await fn();
+        return "no error";
+      } catch (e) {
+        return (e as { code?: string }).code;
+      }
+    };
+
+    const cheque = await c.createCheque(
+      user,
+      { bankAccountId: id, chequeNumber: "1", partyName: "P", transactionDate: "2026-03-05",
+        dueDate: null, amountMinor: 1000, notes: null },
+      tx,
+    );
+    // The opening date cannot move past the first movement; earlier is fine.
+    assert.equal(
+      await code(() => ba.updateBankAccount(user, id, { ...input, openingDate: "2026-03-06" }, tx)),
+      "openingAfterTransactions",
+    );
+    await ba.updateBankAccount(user, id, { ...input, openingDate: "2026-02-01", openingBalanceMinor: 0 }, tx);
+
+    // Archiving waits until no cheque is outstanding.
+    assert.equal(await code(() => ba.setBankAccountArchived(user, id, true, tx)), "hasOutstandingCheques");
+    await c.cancelCheque(user, { transactionId: cheque.id, reason: "x" }, tx);
+    await ba.setBankAccountArchived(user, id, true, tx);
+
+    assert.deepEqual(await m.getAccountBalances(orgId, tx), []); // gone from the dashboard
+    const all = await m.getAccountBalances(orgId, tx, { includeArchived: true });
+    assert.equal(all[0].archived, true);
+    assert.equal(all[0].openingBalanceMinor, 0);
+
+    await ba.setBankAccountArchived(user, id, false, tx);
+    const { listAudit } = await import("./audit.ts");
+    assert.deepEqual(
+      (await listAudit(orgId, 50, tx)).map((r) => r.action).sort(),
+      ["archive", "cancel", "create", "create", "unarchive", "update"],
     );
   });
 });

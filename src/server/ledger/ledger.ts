@@ -1,4 +1,5 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
+import type { LedgerFilters } from "../../lib/validation.ts";
 import { db, type Executor } from "../db/client.ts";
 
 export type LedgerRow = {
@@ -21,10 +22,34 @@ export type LedgerRow = {
   runningBalanceMinor: number;
 };
 
-// Every movement of one account, newest first, with its running balance.
+// Filters apply to the outer query, AFTER the running balance is computed over all
+// rows, so a filtered view still shows the true balance at each row (FR-11).
+function filterConditions(f: LedgerFilters): SQL {
+  const conditions: SQL[] = [sql`true`];
+  if (f.from) conditions.push(sql`l.transaction_date >= ${f.from}`);
+  if (f.to) conditions.push(sql`l.transaction_date <= ${f.to}`);
+  if (f.type === "internal") conditions.push(sql`l.type in ('internal_in', 'internal_out')`);
+  else if (f.type) conditions.push(sql`l.type = ${f.type}`);
+  if (f.status === "counted") conditions.push(sql`l.status in ('active', 'issued', 'cleared')`);
+  if (f.status === "outstanding") conditions.push(sql`l.status = 'issued'`);
+  if (f.status === "void") conditions.push(sql`l.status in ('voided', 'cancelled')`);
+  if (f.q) {
+    // Escape LIKE wildcards so "50%" searches for the text "50%".
+    const pattern = `%${f.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    conditions.push(sql`(
+      l.party_name ilike ${pattern} or l.description ilike ${pattern}
+      or l.reference ilike ${pattern} or l.cheque_number ilike ${pattern}
+      or l.counterpart_name ilike ${pattern} or l.notes ilike ${pattern}
+    )`);
+  }
+  return sql.join(conditions, sql` and `);
+}
+
+// Movements of one account, newest first, with their running balance.
 export async function getAccountLedger(
   organizationId: string,
   accountId: string,
+  filters: LedgerFilters = {},
   database: Executor = db,
 ): Promise<LedgerRow[]> {
   const rows = await database.execute<{
@@ -50,21 +75,30 @@ export async function getAccountLedger(
              then t.amount_minor else -t.amount_minor end as signed_amount_minor
       from transactions t
       where t.organization_id = ${organizationId} and t.bank_account_id = ${accountId}
+    ),
+    ledger as (
+      select
+        s.id, s.type, s.signed_amount_minor, s.party_name, s.reference, s.description,
+        s.cheque_number, s.transaction_date, s.cleared_date, s.status, s.status_reason,
+        s.notes, s.created_at,
+        other.name as counterpart_name,
+        -- Cumulative sum oldest-first, over ALL rows of the account.
+        a.opening_balance_minor + sum(
+          case when s.status in ('active', 'issued', 'cleared') then s.signed_amount_minor else 0 end
+        ) over (order by s.transaction_date, s.created_at, s.id) as running_balance_minor
+      from signed s
+      join bank_accounts a on a.id = s.bank_account_id
+      left join transactions pair
+        on pair.transfer_group_id = s.transfer_group_id and pair.id <> s.id
+      left join bank_accounts other on other.id = pair.bank_account_id
     )
     select
-      s.id, s.type, s.signed_amount_minor, s.party_name, s.reference, s.description,
-      s.cheque_number, s.transaction_date::text, s.cleared_date::text, s.status, s.status_reason, s.notes,
-      other.name as counterpart_name,
-      -- Cumulative sum oldest-first, over ALL rows, before any display order or filter.
-      a.opening_balance_minor + sum(
-        case when s.status in ('active', 'issued', 'cleared') then s.signed_amount_minor else 0 end
-      ) over (order by s.transaction_date, s.created_at, s.id) as running_balance_minor
-    from signed s
-    join bank_accounts a on a.id = s.bank_account_id
-    left join transactions pair
-      on pair.transfer_group_id = s.transfer_group_id and pair.id <> s.id
-    left join bank_accounts other on other.id = pair.bank_account_id
-    order by s.transaction_date desc, s.created_at desc, s.id desc
+      l.id, l.type, l.signed_amount_minor, l.party_name, l.reference, l.description,
+      l.cheque_number, l.transaction_date::text, l.cleared_date::text, l.status,
+      l.status_reason, l.notes, l.counterpart_name, l.running_balance_minor
+    from ledger l
+    where ${filterConditions(filters)}
+    order by l.transaction_date desc, l.created_at desc, l.id desc
   `);
 
   // Postgres returns bigint and sum() as strings.

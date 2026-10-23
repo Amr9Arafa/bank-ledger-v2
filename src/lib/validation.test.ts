@@ -123,3 +123,31 @@ test("cheque: due date optional, never before issue date", async () => {
     chequeNumber: "invalidChequeNumber",
   });
 });
+
+test("ledger filters keep valid values and drop bad ones", async () => {
+  const { parseLedgerFilters } = await import("./validation.ts");
+  assert.deepEqual(
+    parseLedgerFilters({ from: "2026-01-01", to: "bad", type: "cheque", status: "x", q: "  REF1 " }),
+    { from: "2026-01-01", to: undefined, type: "cheque", status: undefined, q: "REF1" },
+  );
+  assert.deepEqual(parseLedgerFilters({ type: ["fee", "deposit"], q: "" }), {
+    from: undefined,
+    to: undefined,
+    type: "fee",
+    status: undefined,
+    q: undefined,
+  });
+});
+
+test("bank account: signed opening balance and checkboxes", async () => {
+  const { bankAccountSchema } = await import("./validation.ts");
+  const base = { name: "CIB", bankName: "CIB", accountNumber: "0012 345-6", openingDate: "2026-10-01" };
+  const r = bankAccountSchema.parse({ ...base, openingBalanceMinor: "-500", receivesTransfers: "on" });
+  assert.equal(r.openingBalanceMinor, -50000);
+  assert.equal(r.receivesTransfers, true);
+  assert.equal(r.issuesCheques, false);
+  assert.equal(bankAccountSchema.parse({ ...base, openingBalanceMinor: "0" }).openingBalanceMinor, 0);
+  assert.deepEqual(errorsOf(bankAccountSchema, { ...base, accountNumber: "12#4", openingBalanceMinor: "1" }), {
+    accountNumber: "invalidAccountNumber",
+  });
+});

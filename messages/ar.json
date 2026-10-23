@@ -95,7 +95,9 @@
     "emailTaken": "هذا البريد مسجل من قبل.",
     "secretKeyMissing": "إضافة المستخدمين تحتاج المتغير SUPABASE_SECRET_KEY على الخادم.",
     "unexpected": "حدث خطأ غير متوقع. حاول مرة أخرى.",
-    "openingAfterTransactions": "توجد حركات قبل هذا التاريخ. اختر تاريخًا افتتاحيًا أقدم."
+    "openingAfterTransactions": "توجد حركات قبل هذا التاريخ. اختر تاريخًا افتتاحيًا أقدم.",
+    "invalidAccountNumber": "رقم الحساب يقبل الأرقام والحروف اللاتينية والمسافات والشرطة فقط.",
+    "hasOutstandingCheques": "لا يمكن أرشفة حساب عليه شيكات لم تُصرف. اصرفها أو ألغها أولًا."
   },
   "ledger": {
     "types": {
@@ -125,7 +127,11 @@
     "voidedBecause": "سبب الإلغاء: {reason}",
     "voidPairNote": "سيتم إلغاء طرفي التحويل الداخلي معًا.",
     "chequeOutstanding": "لم يُصرف",
-    "chequeClearedOn": "صُرف في {date}"
+    "chequeClearedOn": "صُرف في {date}",
+    "archived": "مؤرشف",
+    "exportCsv": "تصدير CSV",
+    "filteredCount": "{count, plural, zero {لا توجد حركات مطابقة} one {حركة واحدة مطابقة} two {حركتان مطابقتان} few {# حركات مطابقة} many {# حركة مطابقة} other {# حركة مطابقة}}. الرصيد في كل صف هو الرصيد الفعلي في تاريخه.",
+    "noMatches": "لا توجد حركات تطابق هذه المرشحات."
   },
   "cheque": {
     "title": "الشيكات",
@@ -200,5 +206,67 @@
       "archive": "أرشفة",
       "unarchive": "إلغاء الأرشفة"
     }
+  },
+  "filters": {
+    "from": "من تاريخ",
+    "to": "إلى تاريخ",
+    "type": "النوع",
+    "status": "الحالة",
+    "search": "بحث",
+    "searchPlaceholder": "الاسم أو المرجع أو رقم الشيك",
+    "all": "الكل",
+    "apply": "تطبيق",
+    "reset": "مسح",
+    "types": {
+      "transfer_in": "تحويل وارد",
+      "deposit": "إيداع",
+      "fee": "مصروفات بنكية",
+      "internal": "تحويل بين حساباتنا",
+      "cheque": "شيك"
+    },
+    "statuses": {
+      "counted": "محسوبة في الرصيد",
+      "outstanding": "شيكات لم تُصرف",
+      "void": "ملغاة"
+    }
+  },
+  "csv": {
+    "date": "التاريخ",
+    "type": "النوع",
+    "details": "البيان",
+    "reference": "المرجع",
+    "chequeNumber": "رقم الشيك",
+    "status": "الحالة",
+    "clearedDate": "تاريخ الصرف",
+    "amount": "المبلغ (ج.م.)",
+    "balance": "الرصيد (ج.م.)",
+    "notes": "ملاحظات",
+    "statuses": {
+      "active": "سارية",
+      "voided": "ملغاة",
+      "issued": "لم يُصرف",
+      "cleared": "مصروف",
+      "cancelled": "ملغى"
+    }
+  },
+  "accounts": {
+    "title": "الحسابات البنكية",
+    "add": "إضافة حساب",
+    "editTitle": "تعديل الحساب",
+    "edit": "تعديل",
+    "name": "اسم الحساب",
+    "bankName": "البنك",
+    "accountNumber": "رقم الحساب",
+    "openingBalance": "الرصيد الافتتاحي (ج.م.)",
+    "openingDate": "تاريخ الرصيد الافتتاحي",
+    "openingNote": "خذ الرصيد الافتتاحي من كشف البنك في التاريخ المحدد. يمكن أن يكون صفرًا أو سالبًا. الحركات قبل هذا التاريخ مرفوضة.",
+    "usedFor": "يُستخدم في",
+    "receivesTransfers": "استقبال التحويلات",
+    "issuesCheques": "إصدار الشيكات",
+    "archive": "أرشفة",
+    "unarchive": "إلغاء الأرشفة",
+    "confirmArchive": "تأكيد الأرشفة",
+    "confirmUnarchive": "تأكيد",
+    "archiveNote": "يبقى السجل كاملًا، لكن الحساب يختفي من نماذج الإدخال ولوحة التحكم."
   }
 }

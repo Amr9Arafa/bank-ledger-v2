@@ -95,7 +95,9 @@
     "emailTaken": "This email is already registered.",
     "secretKeyMissing": "Adding users needs SUPABASE_SECRET_KEY on the server.",
     "unexpected": "Something went wrong. Please try again.",
-    "openingAfterTransactions": "There are movements before this date. Choose an earlier opening date."
+    "openingAfterTransactions": "There are movements before this date. Choose an earlier opening date.",
+    "invalidAccountNumber": "Account numbers may contain only digits, Latin letters, spaces and dashes.",
+    "hasOutstandingCheques": "An account with outstanding cheques cannot be archived. Clear or cancel them first."
   },
   "ledger": {
     "types": {
@@ -125,7 +127,11 @@
     "voidedBecause": "Voided: {reason}",
     "voidPairNote": "Both halves of the internal transfer will be voided.",
     "chequeOutstanding": "Outstanding",
-    "chequeClearedOn": "Cleared {date}"
+    "chequeClearedOn": "Cleared {date}",
+    "archived": "Archived",
+    "exportCsv": "Export CSV",
+    "filteredCount": "{count, plural, =0 {No matching movements} one {# matching movement} other {# matching movements}}. Each row's balance is the true balance on that date.",
+    "noMatches": "No movements match these filters."
   },
   "cheque": {
     "title": "Cheques",
@@ -200,5 +206,67 @@
       "archive": "Archived",
       "unarchive": "Unarchived"
     }
+  },
+  "filters": {
+    "from": "From",
+    "to": "To",
+    "type": "Type",
+    "status": "Status",
+    "search": "Search",
+    "searchPlaceholder": "Name, reference or cheque number",
+    "all": "All",
+    "apply": "Apply",
+    "reset": "Reset",
+    "types": {
+      "transfer_in": "Incoming transfer",
+      "deposit": "Deposit",
+      "fee": "Bank fee",
+      "internal": "Between our accounts",
+      "cheque": "Cheque"
+    },
+    "statuses": {
+      "counted": "In the balance",
+      "outstanding": "Outstanding cheques",
+      "void": "Voided"
+    }
+  },
+  "csv": {
+    "date": "Date",
+    "type": "Type",
+    "details": "Details",
+    "reference": "Reference",
+    "chequeNumber": "Cheque number",
+    "status": "Status",
+    "clearedDate": "Cleared date",
+    "amount": "Amount (EGP)",
+    "balance": "Balance (EGP)",
+    "notes": "Notes",
+    "statuses": {
+      "active": "Active",
+      "voided": "Voided",
+      "issued": "Outstanding",
+      "cleared": "Cleared",
+      "cancelled": "Cancelled"
+    }
+  },
+  "accounts": {
+    "title": "Bank accounts",
+    "add": "Add account",
+    "editTitle": "Edit account",
+    "edit": "Edit",
+    "name": "Account name",
+    "bankName": "Bank",
+    "accountNumber": "Account number",
+    "openingBalance": "Opening balance (EGP)",
+    "openingDate": "Opening balance date",
+    "openingNote": "Take the opening balance from the bank statement on this date. It may be zero or negative. Movements before this date are rejected.",
+    "usedFor": "Used for",
+    "receivesTransfers": "Receives transfers",
+    "issuesCheques": "Issues cheques",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "confirmArchive": "Confirm archive",
+    "confirmUnarchive": "Confirm",
+    "archiveNote": "The history stays, but the account leaves the entry forms and the dashboard."
   }
 }

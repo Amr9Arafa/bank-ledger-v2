@@ -3,10 +3,12 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { z } from "zod";
 import { voidMovement } from "@/actions/transactions";
 import InlineAction from "@/components/InlineAction";
+import LedgerFilterBar from "@/components/LedgerFilterBar";
 import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { formatDay } from "@/lib/dates";
 import { formatEGP } from "@/lib/money";
+import { parseLedgerFilters } from "@/lib/validation";
 import { hasRole } from "@/server/auth/roles";
 import { getCurrentUser } from "@/server/auth/session";
 import { getAccountBalances } from "@/server/ledger/balances";
@@ -16,6 +18,7 @@ type RowType = "transfer_in" | "deposit" | "fee" | "internal_in" | "internal_out
 
 export default async function AccountLedgerPage({
   params,
+  searchParams,
 }: PageProps<"/[locale]/accounts/[id]">) {
   const { locale: rawLocale, id } = await params;
   const locale = rawLocale as Locale;
@@ -33,7 +36,14 @@ export default async function AccountLedgerPage({
     await getAccountBalances(user.organizationId, undefined, { includeArchived: true })
   ).find((a) => a.id === id);
   if (!account) notFound();
-  const rows = await getAccountLedger(user.organizationId, id);
+  const filters = parseLedgerFilters(await searchParams);
+  const filtered = Object.values(filters).some(Boolean);
+  const rows = await getAccountLedger(user.organizationId, id, filters);
+  // The export downloads exactly this view: same filters, same order of rules.
+  const query = new URLSearchParams(
+    Object.entries(filters).filter((e): e is [string, string] => Boolean(e[1])),
+  ).toString();
+  const exportHref = `/${locale}/accounts/${id}/export${query ? `?${query}` : ""}`;
   const canWrite = hasRole(user, "accountant") && !account.archived;
 
   const day = (d: string) => formatDay(d, locale);
@@ -50,19 +60,38 @@ export default async function AccountLedgerPage({
         <div>
           <h1 className="text-2xl font-semibold">
             <bdi>{account.name}</bdi>
+            {account.archived && (
+              <span className="ms-2 rounded bg-foreground/10 px-2 py-0.5 align-middle text-xs font-normal">
+                {t("archived")}
+              </span>
+            )}
           </h1>
           <p className="text-sm text-foreground/60">
             <bdi>{account.bankName}</bdi> · <bdi>{account.accountNumber}</bdi>
           </p>
         </div>
-        {canWrite && (
-          <Link
-            href={{ pathname: "/transactions/new", query: { account: account.id } }}
-            className="rounded-md bg-foreground px-4 py-2 text-sm text-background"
-          >
-            {td("newMovement")}
-          </Link>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {canWrite && (
+            <Link
+              href={{ pathname: "/transactions/new", query: { account: account.id } }}
+              className="rounded-md bg-foreground px-4 py-2 text-sm text-background"
+            >
+              {td("newMovement")}
+            </Link>
+          )}
+          {canWrite && account.issuesCheques && (
+            <Link
+              href={{ pathname: "/cheques/new", query: { account: account.id } }}
+              className="rounded-md border border-foreground/20 px-4 py-2 text-sm"
+            >
+              {td("newCheque")}
+            </Link>
+          )}
+          {/* A file download, not a page: a plain link, not the app's Link. */}
+          <a href={exportHref} className="rounded-md border border-foreground/20 px-4 py-2 text-sm">
+            {t("exportCsv")}
+          </a>
+        </div>
       </header>
 
       <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-2 rounded-lg bg-foreground/5 p-4">
@@ -76,10 +105,27 @@ export default async function AccountLedgerPage({
           <dt className="text-xs text-foreground/60">{td("bankBalance")}</dt>
           <dd className="text-xl tabular-nums">{formatEGP(account.bankBalanceMinor, locale)}</dd>
         </div>
+        {account.issuesCheques && (
+          <div>
+            <dt className="text-xs text-foreground/60">{td("outstandingCheques")}</dt>
+            <dd className="text-xl tabular-nums">
+              {formatEGP(account.outstandingChequesMinor, locale)}
+            </dd>
+          </div>
+        )}
       </dl>
 
+      <LedgerFilterBar
+        action={`/${locale}/accounts/${id}`}
+        resetHref={`/accounts/${id}`}
+        filters={filters}
+      />
+      {filtered && (
+        <p className="mt-3 text-sm text-foreground/70">{t("filteredCount", { count: rows.length })}</p>
+      )}
+
       {/* Wide table: scrolls sideways inside its box on phones, never the whole page. */}
-      <div className="mt-6 overflow-x-auto rounded-lg border border-foreground/10">
+      <div className="mt-3 overflow-x-auto rounded-lg border border-foreground/10">
         <table className="w-full text-sm">
           <thead className="bg-foreground/5 text-foreground/70">
             <tr>
@@ -164,22 +210,27 @@ export default async function AccountLedgerPage({
                 </td>
               </tr>
             ))}
-            <tr className="border-t border-foreground/10 bg-foreground/5">
-              <td className="whitespace-nowrap px-3 py-2 tabular-nums">
-                {day(account.openingDate)}
-              </td>
-              <td className="px-3 py-2" colSpan={4}>
-                {t("openingBalance")}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2 text-end font-medium tabular-nums">
-                {formatEGP(account.openingBalanceMinor, locale)}
-              </td>
-              <td />
-            </tr>
+            {/* The opening balance belongs to the full history, not to a filtered view. */}
+            {!filtered && (
+              <tr className="border-t border-foreground/10 bg-foreground/5">
+                <td className="whitespace-nowrap px-3 py-2 tabular-nums">
+                  {day(account.openingDate)}
+                </td>
+                <td className="px-3 py-2" colSpan={4}>
+                  {t("openingBalance")}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-end font-medium tabular-nums">
+                  {formatEGP(account.openingBalanceMinor, locale)}
+                </td>
+                <td />
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
-      {rows.length === 0 && <p className="mt-4 text-foreground/70">{t("empty")}</p>}
+      {rows.length === 0 && (
+        <p className="mt-4 text-foreground/70">{filtered ? t("noMatches") : t("empty")}</p>
+      )}
     </div>
   );
 }

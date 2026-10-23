@@ -39,13 +39,26 @@ export function toMinor(input: string): AmountResult {
 
 // 125050 -> "EGP 1,250.50" (en) or "١٬٢٥٠٫٥٠ ج.م." (ar). Display only.
 export function formatEGP(minor: number, locale: "ar" | "en"): string {
-  const abs = Math.abs(minor);
-  const piasters = abs % 100;
-  const pounds = (abs - piasters) / 100;
   // A decimal string keeps Intl exact; minor / 100 would go through a float.
-  const decimal = `${minor < 0 ? "-" : ""}${pounds}.${String(piasters).padStart(2, "0")}`;
   return new Intl.NumberFormat(locale === "ar" ? "ar-EG" : "en-EG", {
     style: "currency",
     currency: "EGP",
-  }).format(decimal as Intl.StringNumericLiteral);
+  }).format(minorToDecimal(minor) as Intl.StringNumericLiteral);
+}
+
+// Like toMinor, but for balances: zero and a leading "-" are allowed ("-1,250.50" -> -125050).
+export function toSignedMinor(input: string): AmountResult {
+  const s = normalizeDigits(input).trim();
+  const negative = s.startsWith("-");
+  const result = toMinor(negative ? s.slice(1) : s);
+  if (result.ok) return { ok: true, minor: negative ? -result.minor : result.minor };
+  if (result.error === "notPositive") return { ok: true, minor: 0 };
+  return result;
+}
+
+// 125050 -> "1250.50", -5 -> "-0.05": plain decimal for CSV and form fields, no grouping.
+export function minorToDecimal(minor: number): string {
+  const abs = Math.abs(minor);
+  const piasters = abs % 100;
+  return `${minor < 0 ? "-" : ""}${(abs - piasters) / 100}.${String(piasters).padStart(2, "0")}`;
 }

@@ -75,3 +75,20 @@ test("formatEGP formats Arabic with Arabic-Indic digits", () => {
   assert.match(ar, /ج\.م\./);
   assert.match(formatEGP(-125050, "ar"), /-.*١٬٢٥٠٫٥٠/);
 });
+
+test("toSignedMinor allows zero and negative balances", async () => {
+  const { toSignedMinor } = await import("./money.ts");
+  assert.deepEqual(toSignedMinor("-1,250.50"), { ok: true, minor: -125050 });
+  assert.deepEqual(toSignedMinor("0"), { ok: true, minor: 0 });
+  assert.deepEqual(toSignedMinor("0.00"), { ok: true, minor: 0 });
+  assert.deepEqual(toSignedMinor("75000"), { ok: true, minor: 7500000 });
+  assert.deepEqual(toSignedMinor("-"), { ok: false, error: "empty" });
+  assert.deepEqual(toSignedMinor("1.234"), { ok: false, error: "tooManyDecimals" });
+});
+
+test("minorToDecimal is exact", async () => {
+  const { minorToDecimal } = await import("./money.ts");
+  assert.equal(minorToDecimal(125050), "1250.50");
+  assert.equal(minorToDecimal(-5), "-0.05");
+  assert.equal(minorToDecimal(0), "0.00");
+});
