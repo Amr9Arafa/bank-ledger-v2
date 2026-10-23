@@ -27,11 +27,11 @@ export default async function AuditPage({ params }: PageProps<"/[locale]/setting
   return (
     <div className="mx-auto max-w-6xl">
       <h1 className="text-2xl font-semibold">{t("auditLog")}</h1>
-      <p className="mt-1 text-sm text-foreground/60">{t("auditNote", { count: rows.length })}</p>
+      <p className="mt-1 text-sm text-foreground-tertiary">{t("auditNote", { count: rows.length })}</p>
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-foreground/10">
+      <div className="mt-4 overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-foreground/5 text-foreground/70">
+          <thead className="bg-surface-subtle text-foreground-secondary">
             <tr>
               <th className="px-3 py-2 text-start font-medium">{t("when")}</th>
               <th className="px-3 py-2 text-start font-medium">{t("who")}</th>
@@ -42,7 +42,7 @@ export default async function AuditPage({ params }: PageProps<"/[locale]/setting
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id} className="border-t border-foreground/10 align-top">
+              <tr key={r.id} className="border-t border-border align-top">
                 <td className="whitespace-nowrap px-3 py-2 tabular-nums">
                   {when.format(new Date(r.createdAt))}
                 </td>

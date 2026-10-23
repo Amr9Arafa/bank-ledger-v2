@@ -28,15 +28,15 @@ export default async function BankAccountsSettingsPage({
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <Link
           href="/settings/accounts/new"
-          className="rounded-md bg-foreground px-4 py-2 text-sm text-background"
+          className="rounded-md bg-navy px-4 py-2 text-sm text-white"
         >
           {t("add")}
         </Link>
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-foreground/10">
+      <div className="mt-4 overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-foreground/5 text-foreground/70">
+          <thead className="bg-surface-subtle text-foreground-secondary">
             <tr>
               <th className="px-3 py-2 text-start font-medium">{t("name")}</th>
               <th className="px-3 py-2 text-start font-medium">{t("bankName")}</th>
@@ -53,18 +53,18 @@ export default async function BankAccountsSettingsPage({
             {accounts.map((a) => (
               <tr
                 key={a.id}
-                className={`border-t border-foreground/10 align-top ${a.archived ? "text-foreground/50" : ""}`}
+                className={`border-t border-border align-top ${a.archived ? "text-foreground-tertiary" : ""}`}
               >
                 <td className="px-3 py-2">
                   <Link href={`/accounts/${a.id}`} className="font-medium hover:underline">
                     <bdi>{a.name}</bdi>
                   </Link>
                   {a.archived && (
-                    <span className="ms-2 rounded bg-foreground/10 px-1.5 py-0.5 text-xs">
+                    <span className="ms-2 rounded bg-surface-muted px-1.5 py-0.5 text-xs">
                       {tl("archived")}
                     </span>
                   )}
-                  <p className="text-xs text-foreground/60" dir="ltr">
+                  <p className="text-xs text-foreground-tertiary" dir="ltr">
                     {a.accountNumber}
                   </p>
                 </td>

@@ -61,12 +61,12 @@ export default async function AccountLedgerPage({
           <h1 className="text-2xl font-semibold">
             <bdi>{account.name}</bdi>
             {account.archived && (
-              <span className="ms-2 rounded bg-foreground/10 px-2 py-0.5 align-middle text-xs font-normal">
+              <span className="ms-2 rounded bg-surface-muted px-2 py-0.5 align-middle text-xs font-normal">
                 {t("archived")}
               </span>
             )}
           </h1>
-          <p className="text-sm text-foreground/60">
+          <p className="text-sm text-foreground-tertiary">
             <bdi>{account.bankName}</bdi> · <bdi>{account.accountNumber}</bdi>
           </p>
         </div>
@@ -74,7 +74,7 @@ export default async function AccountLedgerPage({
           {canWrite && (
             <Link
               href={{ pathname: "/transactions/new", query: { account: account.id } }}
-              className="rounded-md bg-foreground px-4 py-2 text-sm text-background"
+              className="rounded-md bg-navy px-4 py-2 text-sm text-white"
             >
               {td("newMovement")}
             </Link>
@@ -82,32 +82,32 @@ export default async function AccountLedgerPage({
           {canWrite && account.issuesCheques && (
             <Link
               href={{ pathname: "/cheques/new", query: { account: account.id } }}
-              className="rounded-md border border-foreground/20 px-4 py-2 text-sm"
+              className="rounded-md border border-border px-4 py-2 text-sm"
             >
               {td("newCheque")}
             </Link>
           )}
           {/* A file download, not a page: a plain link, not the app's Link. */}
-          <a href={exportHref} className="rounded-md border border-foreground/20 px-4 py-2 text-sm">
+          <a href={exportHref} className="rounded-md border border-border px-4 py-2 text-sm">
             {t("exportCsv")}
           </a>
         </div>
       </header>
 
-      <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-2 rounded-lg bg-foreground/5 p-4">
+      <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-2 rounded-lg bg-surface-subtle p-4">
         <div>
-          <dt className="text-xs text-foreground/60">{td("bookBalance")}</dt>
+          <dt className="text-xs text-foreground-tertiary">{td("bookBalance")}</dt>
           <dd className="text-xl font-semibold tabular-nums">
             {formatEGP(account.bookBalanceMinor, locale)}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-foreground/60">{td("bankBalance")}</dt>
+          <dt className="text-xs text-foreground-tertiary">{td("bankBalance")}</dt>
           <dd className="text-xl tabular-nums">{formatEGP(account.bankBalanceMinor, locale)}</dd>
         </div>
         {account.issuesCheques && (
           <div>
-            <dt className="text-xs text-foreground/60">{td("outstandingCheques")}</dt>
+            <dt className="text-xs text-foreground-tertiary">{td("outstandingCheques")}</dt>
             <dd className="text-xl tabular-nums">
               {formatEGP(account.outstandingChequesMinor, locale)}
             </dd>
@@ -121,13 +121,13 @@ export default async function AccountLedgerPage({
         filters={filters}
       />
       {filtered && (
-        <p className="mt-3 text-sm text-foreground/70">{t("filteredCount", { count: rows.length })}</p>
+        <p className="mt-3 text-sm text-foreground-secondary">{t("filteredCount", { count: rows.length })}</p>
       )}
 
       {/* Wide table: scrolls sideways inside its box on phones, never the whole page. */}
-      <div className="mt-3 overflow-x-auto rounded-lg border border-foreground/10">
+      <div className="mt-3 overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-foreground/5 text-foreground/70">
+          <thead className="bg-surface-subtle text-foreground-secondary">
             <tr>
               <th className="px-3 py-2 text-start font-medium">{t("date")}</th>
               <th className="px-3 py-2 text-start font-medium">{t("type")}</th>
@@ -142,48 +142,48 @@ export default async function AccountLedgerPage({
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id} className="border-t border-foreground/10 align-top">
+              <tr key={r.id} className="border-t border-border align-top">
                 <td className="whitespace-nowrap px-3 py-2 tabular-nums">
                   {day(r.transactionDate)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2">
                   {t(`types.${r.type as RowType}`)}
                   {isVoid(r) && (
-                    <span className="ms-2 rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-700">
+                    <span className="ms-2 rounded bg-debit-tint px-1.5 py-0.5 text-xs text-debit">
                       {t("voided")}
                     </span>
                   )}
                   {r.status === "issued" && (
-                    <span className="ms-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">
+                    <span className="ms-2 rounded bg-warning-tint px-1.5 py-0.5 text-xs text-warning">
                       {t("chequeOutstanding")}
                     </span>
                   )}
                   {r.status === "cleared" && r.clearedDate && (
-                    <span className="ms-2 rounded bg-green-50 px-1.5 py-0.5 text-xs text-green-800">
+                    <span className="ms-2 rounded bg-credit-tint px-1.5 py-0.5 text-xs text-credit">
                       {t("chequeClearedOn", { date: day(r.clearedDate) })}
                     </span>
                   )}
                 </td>
                 <td className="px-3 py-2">
-                  <span className={isVoid(r) ? "text-foreground/50 line-through" : ""}>
+                  <span className={isVoid(r) ? "text-foreground-tertiary line-through" : ""}>
                     <bdi>{details(r)}</bdi>
                   </span>
                   {isVoid(r) && r.statusReason && (
-                    <p className="text-xs text-foreground/60">
+                    <p className="text-xs text-foreground-tertiary">
                       {t("voidedBecause", { reason: r.statusReason })}
                     </p>
                   )}
                 </td>
-                <td className="px-3 py-2 text-foreground/70">
+                <td className="px-3 py-2 text-foreground-secondary">
                   <bdi>{r.reference ?? r.chequeNumber ?? ""}</bdi>
                 </td>
                 <td
                   className={`whitespace-nowrap px-3 py-2 text-end tabular-nums ${
                     isVoid(r)
-                      ? "text-foreground/50 line-through"
+                      ? "text-foreground-tertiary line-through"
                       : r.signedAmountMinor < 0
-                        ? "text-red-700"
-                        : "text-green-700"
+                        ? "text-debit"
+                        : "text-credit"
                   }`}
                 >
                   {formatEGP(r.signedAmountMinor, locale)}
@@ -212,7 +212,7 @@ export default async function AccountLedgerPage({
             ))}
             {/* The opening balance belongs to the full history, not to a filtered view. */}
             {!filtered && (
-              <tr className="border-t border-foreground/10 bg-foreground/5">
+              <tr className="border-t border-border bg-surface-subtle">
                 <td className="whitespace-nowrap px-3 py-2 tabular-nums">
                   {day(account.openingDate)}
                 </td>
@@ -229,7 +229,7 @@ export default async function AccountLedgerPage({
         </table>
       </div>
       {rows.length === 0 && (
-        <p className="mt-4 text-foreground/70">{filtered ? t("noMatches") : t("empty")}</p>
+        <p className="mt-4 text-foreground-secondary">{filtered ? t("noMatches") : t("empty")}</p>
       )}
     </div>
   );

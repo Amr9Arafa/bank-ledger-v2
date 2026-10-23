@@ -22,8 +22,8 @@ export default async function LoginPage({ params }: PageProps<"/[locale]/login">
         {noAccess ? (
           <form action={signOut} className="space-y-4">
             <input type="hidden" name="locale" value={locale} />
-            <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{t("noAccess")}</p>
-            <button type="submit" className="rounded-md border border-foreground/20 px-4 py-2">
+            <p className="rounded-md bg-debit-tint p-3 text-sm text-debit">{t("noAccess")}</p>
+            <button type="submit" className="rounded-md border border-border px-4 py-2">
               {t("signOut")}
             </button>
           </form>

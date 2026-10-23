@@ -60,13 +60,13 @@ export default function NewUserForm() {
           />,
         )}
       </div>
-      <p className="text-sm text-foreground/60">{t("firstPasswordNote")}</p>
+      <p className="text-sm text-foreground-tertiary">{t("firstPasswordNote")}</p>
       <div aria-live="polite">
         {state.formError && (
-          <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{errorText(state.formError)}</p>
+          <p className="rounded-md bg-debit-tint p-3 text-sm text-debit">{errorText(state.formError)}</p>
         )}
         {state.saved && !pending && (
-          <p className="rounded-md bg-green-50 p-3 text-sm text-green-800">{t("userCreated")}</p>
+          <p className="rounded-md bg-credit-tint p-3 text-sm text-credit">{t("userCreated")}</p>
         )}
       </div>
       <button type="submit" disabled={pending} className={primaryButton}>

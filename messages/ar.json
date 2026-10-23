@@ -13,12 +13,47 @@
     "companyTotal": "إجمالي الشركة",
     "bookBalance": "الرصيد الدفتري",
     "bankBalance": "رصيد البنك",
-    "issuesCheques": "يصدر شيكات",
     "newMovement": "حركة جديدة",
     "newTransfer": "تحويل وارد جديد",
     "newCheque": "شيك جديد",
     "outstandingCheques": "شيكات لم تُصرف",
-    "chequesDueSoon": "{count, plural, one {شيك واحد مستحق} two {شيكان مستحقان} few {# شيكات مستحقة} many {# شيكًا مستحقًا} other {# شيك مستحق}} خلال ٧ أيام أو متأخر، بإجمالي {total}"
+    "new": "جديد",
+    "accounts": "الحسابات",
+    "bookNote": "بعد خصم كل الشيكات الصادرة",
+    "bankNote": "ما يجب أن تظهره كشوف البنك",
+    "outstandingNote": "{count, plural, zero {لا توجد شيكات في انتظار الصرف} one {شيك واحد لم يُصرف بعد} two {شيكان لم يُصرفا بعد} few {# شيكات لم تُصرف بعد} many {# شيكًا لم يُصرف بعد} other {# شيك لم يُصرف بعد}}",
+    "viewLedger": "عرض الدفتر",
+    "bookShort": "دفتري",
+    "bankShort": "البنك",
+    "outstandingShort": "لم يُصرف",
+    "promisedBar": "{outstanding} من رصيد البنك {bank} محجوز لشيكات لم تُصرف بعد",
+    "overCommitted": "الشيكات التي لم تُصرف أكبر من رصيد البنك.",
+    "noCheques": "لا يصدر شيكات",
+    "recentMovements": "أحدث الحركات",
+    "views": {
+      "all": "الكل",
+      "in": "وارد",
+      "out": "صادر",
+      "cheques": "شيكات"
+    },
+    "noMovements": {
+      "all": "لا توجد حركات بعد.",
+      "in": "لا توجد حركات واردة بعد.",
+      "out": "لا توجد حركات صادرة بعد.",
+      "cheques": "لا توجد شيكات بعد."
+    },
+    "description": "البيان",
+    "chequeBadge": "شيك {number}",
+    "upcomingCheques": "شيكات قادمة",
+    "dueSoonCount": "{count, plural, one {شيك مستحق خلال ٧ أيام} two {شيكان مستحقان خلال ٧ أيام} few {# شيكات مستحقة خلال ٧ أيام} many {# شيكًا مستحقًا خلال ٧ أيام} other {# شيك مستحق خلال ٧ أيام}}",
+    "dueToday": "مستحق اليوم",
+    "dueTomorrow": "مستحق غدًا",
+    "dueIn": "{count, plural, two {بعد يومين} few {بعد # أيام} many {بعد # يومًا} other {بعد # يوم}}",
+    "overdue": "{count, plural, one {متأخر يومًا واحدًا} two {متأخر يومين} few {متأخر # أيام} many {متأخر # يومًا} other {متأخر # يوم}}",
+    "chequeMeta": "{account}، شيك رقم {number}",
+    "noUpcoming": "لا توجد شيكات في انتظار الصرف.",
+    "allCheques": "كل الشيكات",
+    "allChequesCount": "كل الشيكات ({count})"
   },
   "nav": {
     "home": "الرئيسية",
@@ -29,7 +64,11 @@
       "admin": "مدير",
       "accountant": "محاسب",
       "viewer": "مشاهد"
-    }
+    },
+    "main": "القائمة الرئيسية",
+    "accounts": "الحسابات",
+    "menu": "القائمة",
+    "closeMenu": "إغلاق"
   },
   "movement": {
     "title": "حركة جديدة",

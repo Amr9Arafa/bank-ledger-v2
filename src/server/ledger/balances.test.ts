@@ -304,3 +304,57 @@ test("bank accounts: opening date rule, archive rules, audit", { skip }, async (
     );
   });
 });
+
+test("recent movements: newest first, views filter, voided rows hidden", { skip }, async () => {
+  const m = await load();
+  await inRollback(async (tx) => {
+    const orgId = crypto.randomUUID();
+    const user = { id: ADMIN_ID, organizationId: orgId };
+    await tx.insert(m.organizations).values({ id: orgId, name: "Contract test" });
+    const [a, b] = await tx
+      .insert(m.bankAccounts)
+      .values([
+        { organizationId: orgId, name: "A", bankName: "T", accountNumber: "1",
+          openingBalanceMinor: 0, openingDate: "2026-01-01", issuesCheques: true },
+        { organizationId: orgId, name: "B", bankName: "T", accountNumber: "2",
+          openingBalanceMinor: 0, openingDate: "2026-01-01" },
+      ])
+      .returning();
+    await m.createMovement(user, { type: "transfer_in", bankAccountId: a.id,
+      transactionDate: "2026-01-02", amountMinor: 500, partyName: "P", reference: "R1", notes: null }, {}, tx);
+    const fee = await m.createMovement(user, { type: "fee", bankAccountId: a.id,
+      transactionDate: "2026-01-03", amountMinor: 50, description: "Fee", notes: null }, {}, tx);
+    await m.createInternalTransfer(user, { fromAccountId: a.id, toAccountId: b.id,
+      transactionDate: "2026-01-04", amountMinor: 100, notes: null }, tx);
+    await tx.insert(m.transactions).values({ organizationId: orgId, bankAccountId: a.id,
+      type: "cheque", chequeNumber: "9", amountMinor: 70, transactionDate: "2026-01-05",
+      status: "issued", partyName: "S", createdBy: ADMIN_ID, updatedBy: ADMIN_ID });
+    if (fee.status === "created") {
+      await m.voidTransaction(user, { transactionId: fee.ids[0], reason: "x" }, tx);
+    }
+
+    const list = async (view: "all" | "in" | "out" | "cheques", limit = 8) =>
+      (await m.listRecentMovements(orgId, view, limit, tx)).map((r) => [
+        r.type, r.signedAmountMinor, r.accountName, r.counterpartName,
+      ]);
+    const all = await list("all");
+    // Newest date first; the voided fee is not shown. Both halves of the internal pair
+    // share date and timestamp, so their relative order is not defined: compare as a set.
+    assert.deepEqual(all[0], ["cheque", -70, "A", null]);
+    assert.deepEqual(all[3], ["transfer_in", 500, "A", null]);
+    assert.deepEqual(
+      all.slice(1, 3).sort((x, y) => String(x[0]).localeCompare(String(y[0]))),
+      [
+        ["internal_in", 100, "B", "A"],
+        ["internal_out", -100, "A", "B"],
+      ],
+    );
+    assert.equal(all.length, 4);
+    assert.deepEqual((await list("in")).map((r) => r[0]), ["internal_in", "transfer_in"]);
+    assert.deepEqual((await list("out")).map((r) => r[0]), ["cheque", "internal_out"]);
+    assert.deepEqual((await list("cheques")).map((r) => r[0]), ["cheque"]);
+    assert.equal((await list("all", 2)).length, 2);
+    // Another organization sees nothing.
+    assert.deepEqual(await m.listRecentMovements(crypto.randomUUID(), "all", 8, tx), []);
+  });
+});

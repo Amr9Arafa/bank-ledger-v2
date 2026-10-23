@@ -14,3 +14,9 @@ test("formatDay puts the day first and never shifts the date", async () => {
   assert.equal(formatDay("2026-01-01", "en"), "01/01/2026");
   assert.match(formatDay("2026-10-05", "ar"), /٠٥.*١٠.*٢٠٢٦/);
 });
+
+test("formatLongDay names the weekday and month", async () => {
+  const { formatLongDay } = await import("./dates.ts");
+  assert.equal(formatLongDay("2026-10-24", "en"), "Saturday, 24 October 2026");
+  assert.match(formatLongDay("2026-10-24", "ar"), /السبت/);
+});

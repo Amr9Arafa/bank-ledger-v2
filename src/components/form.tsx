@@ -7,12 +7,8 @@ import type messages from "../../messages/en.json";
 
 export type ErrorKey = keyof (typeof messages)["errors"];
 
-export const inputClass =
-  "w-full rounded-md border border-foreground/20 bg-background px-3 py-2 aria-invalid:border-red-600";
-export const primaryButton =
-  "rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-50";
-export const secondaryButton =
-  "rounded-md border border-foreground/20 px-4 py-2 disabled:opacity-50";
+// The class strings live in a plain module so server pages can use them too.
+export { inputClass, primaryButton, secondaryButton } from "./styles";
 
 export function useFieldHelpers(errors: Record<string, string>) {
   const te = useTranslations("errors");
@@ -25,7 +21,7 @@ export function useFieldHelpers(errors: Record<string, string>) {
       </label>
       {input}
       {errors[name] && (
-        <p id={`${name}-error`} className="mt-1 text-sm text-red-600">
+        <p id={`${name}-error`} className="mt-1 text-sm text-debit">
           {te(errors[name] as ErrorKey)}
         </p>
       )}

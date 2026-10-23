@@ -143,17 +143,17 @@ export default function MovementForm({
 
       <div aria-live="polite">
         {state.duplicate && (
-          <p className="rounded-md bg-amber-100 p-3 text-sm text-amber-900">
+          <p className="rounded-md bg-warning-tint p-3 text-sm text-warning">
             {t("duplicateWarning")}
           </p>
         )}
         {state.formError && (
-          <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          <p className="rounded-md bg-debit-tint p-3 text-sm text-debit">
             {errorText(state.formError)}
           </p>
         )}
         {state.saved && !pending && (
-          <p className="rounded-md bg-green-50 p-3 text-sm text-green-800">{t("saved")}</p>
+          <p className="rounded-md bg-credit-tint p-3 text-sm text-credit">{t("saved")}</p>
         )}
       </div>
 

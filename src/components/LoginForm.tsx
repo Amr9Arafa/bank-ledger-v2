@@ -42,7 +42,7 @@ export default function LoginForm() {
       )}
       <div aria-live="polite">
         {state.formError && (
-          <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          <p className="rounded-md bg-debit-tint p-3 text-sm text-debit">
             {errorText(state.formError)}
           </p>
         )}

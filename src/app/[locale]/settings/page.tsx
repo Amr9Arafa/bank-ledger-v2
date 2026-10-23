@@ -20,10 +20,10 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/sett
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{tn("settings")}</h1>
         <nav className="flex flex-wrap gap-2 text-sm">
-          <Link href="/settings/accounts" className="rounded-md border border-foreground/20 px-3 py-1.5">
+          <Link href="/settings/accounts" className="rounded-md border border-border px-3 py-1.5">
             {t("bankAccounts")}
           </Link>
-          <Link href="/settings/audit" className="rounded-md border border-foreground/20 px-3 py-1.5">
+          <Link href="/settings/audit" className="rounded-md border border-border px-3 py-1.5">
             {t("auditLog")}
           </Link>
         </nav>
@@ -31,9 +31,9 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/sett
 
       <section>
         <h2 className="text-lg font-semibold">{t("users")}</h2>
-        <div className="mt-3 overflow-x-auto rounded-lg border border-foreground/10">
+        <div className="mt-3 overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-sm">
-            <thead className="bg-foreground/5 text-foreground/70">
+            <thead className="bg-surface-subtle text-foreground-secondary">
               <tr>
                 <th className="px-3 py-2 text-start font-medium">{t("name")}</th>
                 <th className="px-3 py-2 text-start font-medium">{t("email")}</th>
@@ -42,7 +42,7 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/sett
             </thead>
             <tbody>
               {people.map((p) => (
-                <tr key={p.id} className="border-t border-foreground/10">
+                <tr key={p.id} className="border-t border-border">
                   <td className="px-3 py-2">
                     <bdi>{p.name}</bdi>
                   </td>
@@ -60,7 +60,7 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/sett
                           name="role"
                           defaultValue={p.role}
                           aria-label={t("role")}
-                          className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+                          className="rounded-md border border-border bg-background px-2 py-1"
                         >
                           {(["admin", "accountant", "viewer"] as const).map((r) => (
                             <option key={r} value={r}>
@@ -68,7 +68,7 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/sett
                             </option>
                           ))}
                         </select>
-                        <button type="submit" className="rounded-md border border-foreground/20 px-2 py-1">
+                        <button type="submit" className="rounded-md border border-border px-2 py-1">
                           {t("saveRole")}
                         </button>
                       </form>

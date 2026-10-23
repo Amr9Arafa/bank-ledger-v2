@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Light theme only. Names follow the selected SuperDesign direction (Direction 2),
+   so classes read the same in the design and in the code: bg-surface-subtle,
+   text-foreground-secondary, border-border, bg-navy, text-credit, ... */
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -8,19 +11,41 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-foreground-secondary: #525252;
+  --color-foreground-tertiary: #737373;
+
+  --color-surface-subtle: #fafaf9;
+  --color-surface-muted: #f5f5f4;
+  --color-border: #e7e5e4;
+  --color-border-strong: #d6d3d1;
+
+  /* The one accent: primary actions, active navigation, focus. */
+  --color-navy: #1e3a5f;
+  --color-navy-hover: #16304f;
+  --color-navy-tint: #eef2f7;
+
+  /* Money in, money out, due soon: text and thin bars, never large fills. */
+  --color-credit: #15803d;
+  --color-credit-tint: #f0fdf4;
+  --color-debit: #b91c1c;
+  --color-debit-tint: #fef2f2;
+  --color-warning: #b45309;
+  --color-warning-tint: #fffbeb;
+
+  --shadow-hairline: 0 1px 2px rgb(0 0 0 / 0.04);
+
   /* Latin glyphs come from Geist, Arabic glyphs fall through to IBM Plex Sans Arabic. */
   --font-sans: var(--font-geist-sans), var(--font-arabic), sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* Visible keyboard focus everywhere, in the accent color. */
+:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 2px;
 }

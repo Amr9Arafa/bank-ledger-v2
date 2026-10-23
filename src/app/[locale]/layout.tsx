@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
-import AppHeader from "@/components/AppHeader";
+import AppShell from "@/components/AppShell";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -52,10 +52,9 @@ export default async function LocaleLayout({
       dir={locale === "ar" ? "rtl" : "ltr"}
       className={`${geistSans.variable} ${geistMono.variable} ${plexArabic.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans">
+      <body className="min-h-full font-sans text-foreground">
         <NextIntlClientProvider>
-          <AppHeader />
-          <main className="flex-1 px-4 py-6">{children}</main>
+          <AppShell>{children}</AppShell>
         </NextIntlClientProvider>
       </body>
     </html>

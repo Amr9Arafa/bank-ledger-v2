@@ -119,3 +119,87 @@ export async function getAccountLedger(
     runningBalanceMinor: Number(r.running_balance_minor),
   }));
 }
+
+export const MOVEMENT_VIEWS = ["all", "in", "out", "cheques"] as const;
+export type MovementView = (typeof MOVEMENT_VIEWS)[number];
+
+export type RecentMovement = {
+  id: string;
+  accountId: string;
+  accountName: string;
+  type: string;
+  status: string;
+  // Signed: credits positive, debits negative.
+  signedAmountMinor: number;
+  partyName: string | null;
+  description: string | null;
+  reference: string | null;
+  chequeNumber: string | null;
+  transactionDate: string;
+  counterpartName: string | null;
+};
+
+// Latest movements across all accounts for the dashboard. Voided and cancelled rows are
+// left out: the dashboard shows what counts; the account ledger keeps the full history.
+export async function listRecentMovements(
+  organizationId: string,
+  view: MovementView = "all",
+  limit = 8,
+  database: Executor = db,
+): Promise<RecentMovement[]> {
+  const viewFilter =
+    view === "in"
+      ? sql`and t.type in ('transfer_in', 'deposit', 'internal_in')`
+      : view === "out"
+        ? sql`and t.type in ('cheque', 'fee', 'internal_out')`
+        : view === "cheques"
+          ? sql`and t.type = 'cheque'`
+          : sql``;
+
+  const rows = await database.execute<{
+    id: string;
+    account_id: string;
+    account_name: string;
+    type: string;
+    status: string;
+    signed_amount_minor: string;
+    party_name: string | null;
+    description: string | null;
+    reference: string | null;
+    cheque_number: string | null;
+    transaction_date: string;
+    counterpart_name: string | null;
+  }>(sql`
+    select
+      t.id, a.id as account_id, a.name as account_name, t.type, t.status,
+      case when t.type in ('transfer_in', 'deposit', 'internal_in')
+           then t.amount_minor else -t.amount_minor end as signed_amount_minor,
+      t.party_name, t.description, t.reference, t.cheque_number,
+      t.transaction_date::text, other.name as counterpart_name
+    from transactions t
+    join bank_accounts a on a.id = t.bank_account_id
+    left join transactions pair
+      on pair.transfer_group_id = t.transfer_group_id and pair.id <> t.id
+    left join bank_accounts other on other.id = pair.bank_account_id
+    where t.organization_id = ${organizationId}
+      and t.status in ('active', 'issued', 'cleared')
+      ${viewFilter}
+    order by t.transaction_date desc, t.created_at desc, t.id desc
+    limit ${limit}
+  `);
+
+  return rows.map((r) => ({
+    id: r.id,
+    accountId: r.account_id,
+    accountName: r.account_name,
+    type: r.type,
+    status: r.status,
+    signedAmountMinor: Number(r.signed_amount_minor),
+    partyName: r.party_name,
+    description: r.description,
+    reference: r.reference,
+    chequeNumber: r.cheque_number,
+    transactionDate: r.transaction_date,
+    counterpartName: r.counterpart_name,
+  }));
+}

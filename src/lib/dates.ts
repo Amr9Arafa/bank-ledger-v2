@@ -14,3 +14,14 @@ export function formatDay(day: string, locale: "ar" | "en"): string {
     timeZone: "UTC",
   }).format(new Date(`${day}T00:00:00Z`));
 }
+
+// "2026-10-24" -> "Saturday, 24 October 2026" / "السبت، ٢٤ أكتوبر ٢٠٢٦".
+export function formatLongDay(day: string, locale: "ar" | "en"): string {
+  return new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${day}T00:00:00Z`));
+}

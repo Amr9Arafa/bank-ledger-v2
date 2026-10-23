@@ -13,12 +13,47 @@
     "companyTotal": "Company total",
     "bookBalance": "Book balance",
     "bankBalance": "Bank balance",
-    "issuesCheques": "Issues cheques",
     "newMovement": "New movement",
     "newTransfer": "New transfer",
     "newCheque": "New cheque",
     "outstandingCheques": "Outstanding cheques",
-    "chequesDueSoon": "{count, plural, one {# cheque} other {# cheques}} due within 7 days or overdue, totalling {total}"
+    "new": "New",
+    "accounts": "Accounts",
+    "bookNote": "After paying every issued cheque",
+    "bankNote": "What the bank statements should show",
+    "outstandingNote": "{count, plural, =0 {No cheques waiting to clear} one {# cheque not yet cleared} other {# cheques not yet cleared}}",
+    "viewLedger": "View ledger",
+    "bookShort": "book",
+    "bankShort": "Bank",
+    "outstandingShort": "Outstanding",
+    "promisedBar": "{outstanding} of the {bank} bank balance is promised to cheques not yet cleared",
+    "overCommitted": "Outstanding cheques exceed the bank balance.",
+    "noCheques": "Does not issue cheques",
+    "recentMovements": "Recent movements",
+    "views": {
+      "all": "All",
+      "in": "Money in",
+      "out": "Money out",
+      "cheques": "Cheques"
+    },
+    "noMovements": {
+      "all": "No movements yet.",
+      "in": "No money in yet.",
+      "out": "No money out yet.",
+      "cheques": "No cheques yet."
+    },
+    "description": "Description",
+    "chequeBadge": "Cheque {number}",
+    "upcomingCheques": "Upcoming cheques",
+    "dueSoonCount": "{count, plural, one {# due within 7 days} other {# due within 7 days}}",
+    "dueToday": "Due today",
+    "dueTomorrow": "Due tomorrow",
+    "dueIn": "{count, plural, one {In # day} other {In # days}}",
+    "overdue": "{count, plural, one {# day overdue} other {# days overdue}}",
+    "chequeMeta": "{account}, cheque no. {number}",
+    "noUpcoming": "No cheques waiting to clear.",
+    "allCheques": "All cheques",
+    "allChequesCount": "All cheques ({count})"
   },
   "nav": {
     "home": "Home",
@@ -29,7 +64,11 @@
       "admin": "Admin",
       "accountant": "Accountant",
       "viewer": "Viewer"
-    }
+    },
+    "main": "Main",
+    "accounts": "Accounts",
+    "menu": "Menu",
+    "closeMenu": "Close"
   },
   "movement": {
     "title": "New movement",

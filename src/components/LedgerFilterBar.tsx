@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { LEDGER_STATUSES, LEDGER_TYPES, type LedgerFilters } from "@/lib/validation";
 
-const field = "rounded-md border border-foreground/20 bg-background px-2 py-1.5 text-sm";
+const field = "rounded-md border border-border bg-background px-2 py-1.5 text-sm";
 
 // FR-11: a plain GET form, so filters live in the URL: shareable, bookmarkable,
 // and the same URL drives the CSV export. No client JavaScript needed.
@@ -22,17 +22,17 @@ export default async function LedgerFilterBar({
     <form
       method="get"
       action={action}
-      className="mt-6 flex flex-wrap items-end gap-3 rounded-lg border border-foreground/10 p-3"
+      className="mt-6 flex flex-wrap items-end gap-3 rounded-lg border border-border p-3"
     >
-      <label className="flex flex-col gap-1 text-xs text-foreground/70">
+      <label className="flex flex-col gap-1 text-xs text-foreground-secondary">
         {t("from")}
         <input type="date" name="from" defaultValue={filters.from} className={field} />
       </label>
-      <label className="flex flex-col gap-1 text-xs text-foreground/70">
+      <label className="flex flex-col gap-1 text-xs text-foreground-secondary">
         {t("to")}
         <input type="date" name="to" defaultValue={filters.to} className={field} />
       </label>
-      <label className="flex flex-col gap-1 text-xs text-foreground/70">
+      <label className="flex flex-col gap-1 text-xs text-foreground-secondary">
         {t("type")}
         <select name="type" defaultValue={filters.type ?? ""} className={field}>
           <option value="">{t("all")}</option>
@@ -43,7 +43,7 @@ export default async function LedgerFilterBar({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-xs text-foreground/70">
+      <label className="flex flex-col gap-1 text-xs text-foreground-secondary">
         {t("status")}
         <select name="status" defaultValue={filters.status ?? ""} className={field}>
           <option value="">{t("all")}</option>
@@ -54,7 +54,7 @@ export default async function LedgerFilterBar({
           ))}
         </select>
       </label>
-      <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs text-foreground/70">
+      <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs text-foreground-secondary">
         {t("search")}
         <input
           type="search"
@@ -65,7 +65,7 @@ export default async function LedgerFilterBar({
         />
       </label>
       <div className="flex gap-2">
-        <button type="submit" className="rounded-md bg-foreground px-3 py-1.5 text-sm text-background">
+        <button type="submit" className="rounded-md bg-navy px-3 py-1.5 text-sm text-white">
           {t("apply")}
         </button>
         <Link href={resetHref} className="rounded-md px-3 py-1.5 text-sm hover:underline">

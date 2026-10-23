@@ -30,8 +30,8 @@ export default function InlineAction({
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(action, {});
   const { errorText } = useFieldHelpers({});
-  const color = tone === "danger" ? "text-red-700" : "text-foreground";
-  const fill = tone === "danger" ? "bg-red-700 text-white" : "bg-foreground text-background";
+  const color = tone === "danger" ? "text-debit" : "text-foreground";
+  const fill = tone === "danger" ? "bg-debit text-white" : "bg-navy text-white";
 
   if (!open || state.done) {
     return (
@@ -62,12 +62,12 @@ export default function InlineAction({
             placeholder={input.label}
             autoFocus
             required
-            className="rounded-md border border-foreground/20 bg-background px-2 py-1"
+            className="rounded-md border border-border bg-background px-2 py-1"
           />
         </>
       )}
-      {note && <p className="text-foreground/60">{note}</p>}
-      {state.error && <p className="text-red-600">{errorText(state.error)}</p>}
+      {note && <p className="text-foreground-tertiary">{note}</p>}
+      {state.error && <p className="text-debit">{errorText(state.error)}</p>}
       <div className="flex gap-2">
         <button
           type="submit"

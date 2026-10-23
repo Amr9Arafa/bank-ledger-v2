@@ -41,7 +41,7 @@ export default async function ChequesPage({ params, searchParams }: PageProps<"/
         {canWrite && (
           <Link
             href="/cheques/new"
-            className="rounded-md bg-foreground px-4 py-2 text-sm text-background"
+            className="rounded-md bg-navy px-4 py-2 text-sm text-white"
           >
             {t("newTitle")}
           </Link>
@@ -54,23 +54,23 @@ export default async function ChequesPage({ params, searchParams }: PageProps<"/
             key={s}
             href={{ pathname: "/cheques", query: { tab: s } }}
             aria-current={s === tab ? "page" : undefined}
-            className="rounded-full border border-foreground/15 px-3 py-1.5 text-sm aria-[current=page]:bg-foreground aria-[current=page]:text-background"
+            className="rounded-full border border-border px-3 py-1.5 text-sm aria-[current=page]:bg-navy aria-[current=page]:text-white"
           >
             {t(`tabs.${s}`)}
           </Link>
         ))}
       </nav>
 
-      <p className="mt-4 text-sm text-foreground/70">
+      <p className="mt-4 text-sm text-foreground-secondary">
         {t("count", { count: cheques.length })} · {t("total")}{" "}
         <span className="font-semibold tabular-nums text-foreground">
           {formatEGP(total, locale)}
         </span>
       </p>
 
-      <div className="mt-3 overflow-x-auto rounded-lg border border-foreground/10">
+      <div className="mt-3 overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-foreground/5 text-foreground/70">
+          <thead className="bg-surface-subtle text-foreground-secondary">
             <tr>
               <th className="px-3 py-2 text-start font-medium">
                 {tab === "cleared" ? t("clearedDate") : t("dueDate")}
@@ -93,8 +93,8 @@ export default async function ChequesPage({ params, searchParams }: PageProps<"/
               return (
                 <tr
                   key={c.id}
-                  className={`border-t border-foreground/10 align-top ${
-                    overdue ? "bg-red-50" : dueSoon ? "bg-amber-50" : ""
+                  className={`border-t border-border align-top ${
+                    overdue ? "bg-debit-tint" : dueSoon ? "bg-warning-tint" : ""
                   }`}
                 >
                   <td className="whitespace-nowrap px-3 py-2 tabular-nums">
@@ -103,12 +103,12 @@ export default async function ChequesPage({ params, searchParams }: PageProps<"/
                       locale,
                     )}
                     {overdue && (
-                      <span className="ms-2 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-800">
+                      <span className="ms-2 rounded bg-debit-tint px-1.5 py-0.5 text-xs text-debit">
                         {t("overdue")}
                       </span>
                     )}
                     {dueSoon && (
-                      <span className="ms-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">
+                      <span className="ms-2 rounded bg-warning-tint px-1.5 py-0.5 text-xs text-warning">
                         {t("dueSoon")}
                       </span>
                     )}
@@ -119,7 +119,7 @@ export default async function ChequesPage({ params, searchParams }: PageProps<"/
                   <td className="px-3 py-2">
                     <bdi>{c.partyName}</bdi>
                     {tab === "cancelled" && c.statusReason && (
-                      <p className="text-xs text-foreground/60">
+                      <p className="text-xs text-foreground-tertiary">
                         {tl("voidedBecause", { reason: c.statusReason })}
                       </p>
                     )}
@@ -181,7 +181,7 @@ export default async function ChequesPage({ params, searchParams }: PageProps<"/
           </tbody>
         </table>
       </div>
-      {cheques.length === 0 && <p className="mt-4 text-foreground/70">{t(`empty.${tab}`)}</p>}
+      {cheques.length === 0 && <p className="mt-4 text-foreground-secondary">{t(`empty.${tab}`)}</p>}
     </div>
   );
 }

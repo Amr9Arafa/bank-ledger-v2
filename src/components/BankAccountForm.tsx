@@ -72,7 +72,7 @@ export default function BankAccountForm({
           />,
         )}
       </div>
-      <p className="text-sm text-foreground/60">{t("openingNote")}</p>
+      <p className="text-sm text-foreground-tertiary">{t("openingNote")}</p>
 
       <fieldset className="space-y-2">
         <legend className="mb-1 text-sm font-medium">{t("usedFor")}</legend>
@@ -88,7 +88,7 @@ export default function BankAccountForm({
 
       <div aria-live="polite">
         {state.formError && (
-          <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{errorText(state.formError)}</p>
+          <p className="rounded-md bg-debit-tint p-3 text-sm text-debit">{errorText(state.formError)}</p>
         )}
       </div>
       <button type="submit" disabled={pending} className={primaryButton}>

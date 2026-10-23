@@ -19,7 +19,7 @@ export default function LanguageSwitcher() {
       lang={other}
       aria-label={t("label")}
       onClick={() => void saveLanguage(other)}
-      className="rounded-md border border-foreground/15 px-3 py-1.5 text-sm hover:bg-foreground/5"
+      className="rounded border border-border bg-background px-2 py-1 text-xs text-foreground-secondary transition-colors hover:bg-surface-muted hover:text-foreground"
     >
       {t("switchTo")}
     </Link>

@@ -92,3 +92,10 @@ test("minorToDecimal is exact", async () => {
   assert.equal(minorToDecimal(-5), "-0.05");
   assert.equal(minorToDecimal(0), "0.00");
 });
+
+test("formatAmount groups without a currency", async () => {
+  const { formatAmount } = await import("./money.ts");
+  assert.equal(formatAmount(23664000, "en"), "236,640.00");
+  assert.equal(formatAmount(-5, "en"), "-0.05");
+  assert.match(formatAmount(23664000, "ar"), /٢٣٦٬٦٤٠٫٠٠/);
+});

@@ -37,7 +37,7 @@ export default async function NewMovementPage({
               query: accountId ? { type: f, account: accountId } : { type: f },
             }}
             aria-current={f === type ? "page" : undefined}
-            className="rounded-full border border-foreground/15 px-3 py-1.5 text-sm aria-[current=page]:bg-foreground aria-[current=page]:text-background"
+            className="rounded-full border border-border px-3 py-1.5 text-sm aria-[current=page]:bg-navy aria-[current=page]:text-white"
           >
             {t(`types.${f}`)}
           </Link>

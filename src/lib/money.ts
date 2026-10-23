@@ -62,3 +62,12 @@ export function minorToDecimal(minor: number): string {
   const piasters = abs % 100;
   return `${minor < 0 ? "-" : ""}${(abs - piasters) / 100}.${String(piasters).padStart(2, "0")}`;
 }
+
+// 23664000 -> "236,640.00" / "٢٣٦٬٦٤٠٫٠٠": grouped amount without the currency, for tight
+// spots where the currency is already clear (sidebar, compact columns).
+export function formatAmount(minor: number, locale: "ar" | "en"): string {
+  return new Intl.NumberFormat(locale === "ar" ? "ar-EG" : "en-GB", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(minorToDecimal(minor) as Intl.StringNumericLiteral);
+}
