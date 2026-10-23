@@ -11,7 +11,8 @@
     "test": "node --test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "node scripts/seed.ts"
+    "db:seed": "node scripts/seed.ts",
+    "user:set-password": "node scripts/set-password.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
