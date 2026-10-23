@@ -1,0 +1,50 @@
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import MovementForm from "@/components/MovementForm";
+import { Link } from "@/i18n/navigation";
+import type { Locale } from "@/i18n/routing";
+import { todayInCairo } from "@/lib/dates";
+import { FORM_TYPES, type FormType } from "@/lib/validation";
+import { requireRole } from "@/server/auth/roles";
+import { getCurrentUser } from "@/server/auth/session";
+import { getActiveAccounts } from "@/server/ledger/accounts";
+
+export default async function NewMovementPage({
+  params,
+  searchParams,
+}: PageProps<"/[locale]/transactions/new">) {
+  const locale = (await params).locale as Locale;
+  setRequestLocale(locale);
+  const t = await getTranslations("movement");
+
+  // ?type=fee selects the tab; anything else falls back to an incoming transfer.
+  const requested = (await searchParams).type;
+  const type: FormType = FORM_TYPES.find((f) => f === requested) ?? "transfer_in";
+
+  const user = await getCurrentUser();
+  requireRole(user, "accountant");
+  const accounts = await getActiveAccounts(user.organizationId);
+
+  return (
+    <div className="mx-auto max-w-2xl">
+      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+
+      <nav className="mt-4 flex flex-wrap gap-2" aria-label={t("typeLabel")}>
+        {FORM_TYPES.map((f) => (
+          <Link
+            key={f}
+            href={{ pathname: "/transactions/new", query: { type: f } }}
+            aria-current={f === type ? "page" : undefined}
+            className="rounded-full border border-foreground/15 px-3 py-1.5 text-sm aria-[current=page]:bg-foreground aria-[current=page]:text-background"
+          >
+            {t(`types.${f}`)}
+          </Link>
+        ))}
+      </nav>
+
+      <div className="mt-6">
+        {/* key: switching tabs starts a fresh form instead of keeping the old one's state. */}
+        <MovementForm key={type} type={type} accounts={accounts} today={todayInCairo()} />
+      </div>
+    </div>
+  );
+}

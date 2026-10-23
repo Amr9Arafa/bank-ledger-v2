@@ -13,6 +13,57 @@
     "companyTotal": "Company total",
     "bookBalance": "Book balance",
     "bankBalance": "Bank balance",
-    "issuesCheques": "Issues cheques"
+    "issuesCheques": "Issues cheques",
+    "newMovement": "New movement"
+  },
+  "nav": {
+    "home": "Home"
+  },
+  "movement": {
+    "title": "New movement",
+    "typeLabel": "Movement type",
+    "types": {
+      "transfer_in": "Incoming transfer",
+      "deposit": "Deposit",
+      "fee": "Bank fee",
+      "internal": "Between our accounts"
+    },
+    "account": "Account",
+    "fromAccount": "From account",
+    "toAccount": "To account",
+    "selectAccount": "Select an account",
+    "date": "Date",
+    "amount": "Amount (EGP)",
+    "sender": "Sender name",
+    "reference": "Bank reference",
+    "description": "Description",
+    "notes": "Notes",
+    "optional": "(optional)",
+    "save": "Save",
+    "saveNew": "Save + new",
+    "saving": "Saving…",
+    "saveAnyway": "Save anyway",
+    "saved": "Saved. You can enter the next movement.",
+    "duplicateWarning": "A transfer with the same account, amount, date and reference already exists. Check the details, then press Save again to save anyway."
+  },
+  "errors": {
+    "required": "This field is required.",
+    "empty": "Enter the amount.",
+    "invalid": "Enter a valid amount, like 1250.50",
+    "tooManyDecimals": "At most two decimal places.",
+    "notPositive": "The amount must be greater than zero.",
+    "tooLarge": "The amount is too large.",
+    "invalidDate": "Enter a valid date.",
+    "invalidAccount": "Select an account.",
+    "sameAccount": "Choose a different account from the source.",
+    "tooLong": "The text is too long.",
+    "accountNotFound": "Account not found.",
+    "accountArchived": "This account is archived.",
+    "accountNoTransfers": "This account does not receive transfers.",
+    "beforeOpeningDate": "The date is before the account opening date.",
+    "transactionNotFound": "Movement not found.",
+    "invalidTransaction": "Movement not found.",
+    "notActive": "This movement is already voided.",
+    "chequeUseCancel": "Cheques are cancelled from the cheques page."
   }
 }

@@ -13,6 +13,57 @@
     "companyTotal": "إجمالي الشركة",
     "bookBalance": "الرصيد الدفتري",
     "bankBalance": "رصيد البنك",
-    "issuesCheques": "يصدر شيكات"
+    "issuesCheques": "يصدر شيكات",
+    "newMovement": "حركة جديدة"
+  },
+  "nav": {
+    "home": "الرئيسية"
+  },
+  "movement": {
+    "title": "حركة جديدة",
+    "typeLabel": "نوع الحركة",
+    "types": {
+      "transfer_in": "تحويل وارد",
+      "deposit": "إيداع",
+      "fee": "مصروفات بنكية",
+      "internal": "تحويل بين حساباتنا"
+    },
+    "account": "الحساب",
+    "fromAccount": "من حساب",
+    "toAccount": "إلى حساب",
+    "selectAccount": "اختر الحساب",
+    "date": "التاريخ",
+    "amount": "المبلغ (ج.م.)",
+    "sender": "اسم المحوِّل",
+    "reference": "مرجع البنك",
+    "description": "الوصف",
+    "notes": "ملاحظات",
+    "optional": "(اختياري)",
+    "save": "حفظ",
+    "saveNew": "حفظ وإضافة جديدة",
+    "saving": "جارٍ الحفظ…",
+    "saveAnyway": "حفظ على أي حال",
+    "saved": "تم الحفظ. يمكنك إدخال الحركة التالية.",
+    "duplicateWarning": "يوجد تحويل بنفس الحساب والمبلغ والتاريخ والمرجع. راجع البيانات، ثم اضغط حفظ مرة أخرى للحفظ على أي حال."
+  },
+  "errors": {
+    "required": "هذا الحقل مطلوب.",
+    "empty": "أدخل المبلغ.",
+    "invalid": "أدخل مبلغًا صحيحًا، مثل 1250.50",
+    "tooManyDecimals": "خانتان عشريتان كحد أقصى.",
+    "notPositive": "يجب أن يكون المبلغ أكبر من صفر.",
+    "tooLarge": "المبلغ كبير جدًا.",
+    "invalidDate": "أدخل تاريخًا صحيحًا.",
+    "invalidAccount": "اختر حسابًا.",
+    "sameAccount": "اختر حسابًا مختلفًا عن حساب المصدر.",
+    "tooLong": "النص طويل جدًا.",
+    "accountNotFound": "الحساب غير موجود.",
+    "accountArchived": "هذا الحساب مؤرشف.",
+    "accountNoTransfers": "هذا الحساب لا يستقبل تحويلات.",
+    "beforeOpeningDate": "التاريخ يسبق تاريخ الرصيد الافتتاحي للحساب.",
+    "transactionNotFound": "الحركة غير موجودة.",
+    "invalidTransaction": "الحركة غير موجودة.",
+    "notActive": "هذه الحركة ملغاة بالفعل.",
+    "chequeUseCancel": "الشيكات تُلغى من صفحة الشيكات."
   }
 }

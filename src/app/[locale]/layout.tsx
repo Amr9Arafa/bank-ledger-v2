@@ -5,6 +5,7 @@ import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { Link } from "@/i18n/navigation";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -45,6 +46,7 @@ export default async function LocaleLayout({
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
+  const t = await getTranslations("metadata");
 
   return (
     <html
@@ -54,7 +56,10 @@ export default async function LocaleLayout({
     >
       <body className="min-h-full flex flex-col font-sans">
         <NextIntlClientProvider>
-          <header className="flex justify-end border-b border-foreground/10 px-4 py-3">
+          <header className="flex items-center justify-between gap-4 border-b border-foreground/10 px-4 py-3">
+            <Link href="/" className="font-semibold">
+              {t("title")}
+            </Link>
             <LanguageSwitcher />
           </header>
           <main className="flex-1 px-4 py-6">{children}</main>

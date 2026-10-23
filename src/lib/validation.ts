@@ -32,6 +32,10 @@ const optionalText = (max: number) =>
 
 const notes = optionalText(1000);
 
+// The tabs of the new movement form. "internal" saves an internal_out + internal_in pair.
+export const FORM_TYPES = ["transfer_in", "deposit", "fee", "internal"] as const;
+export type FormType = (typeof FORM_TYPES)[number];
+
 // Transfer in, deposit and fee share one form; fields differ by type.
 export const movementSchema = z.discriminatedUnion("type", [
   z.object({
