@@ -4,8 +4,7 @@ import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { todayInCairo } from "@/lib/dates";
 import { FORM_TYPES, type FormType } from "@/lib/validation";
-import { requireRole } from "@/server/auth/roles";
-import { getCurrentUser } from "@/server/auth/session";
+import { getUserWithRole } from "@/server/auth/session";
 import { getActiveAccounts } from "@/server/ledger/accounts";
 
 export default async function NewMovementPage({
@@ -20,8 +19,7 @@ export default async function NewMovementPage({
   const { type: requested, account: requestedAccount } = await searchParams;
   const type: FormType = FORM_TYPES.find((f) => f === requested) ?? "transfer_in";
 
-  const user = await getCurrentUser();
-  requireRole(user, "accountant");
+  const user = await getUserWithRole("accountant");
   const accounts = await getActiveAccounts(user.organizationId);
   // ?account=<id> from an account's ledger page pre-selects that account.
   const accountId = accounts.find((a) => a.id === requestedAccount)?.id;

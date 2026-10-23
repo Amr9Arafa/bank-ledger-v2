@@ -2,8 +2,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import ChequeForm from "@/components/ChequeForm";
 import type { Locale } from "@/i18n/routing";
 import { todayInCairo } from "@/lib/dates";
-import { requireRole } from "@/server/auth/roles";
-import { getCurrentUser } from "@/server/auth/session";
+import { getUserWithRole } from "@/server/auth/session";
 import { getActiveAccounts } from "@/server/ledger/accounts";
 import { suggestChequeNumbers } from "@/server/ledger/cheques";
 
@@ -15,8 +14,7 @@ export default async function NewChequePage({
   setRequestLocale(locale);
   const t = await getTranslations("cheque");
 
-  const user = await getCurrentUser();
-  requireRole(user, "accountant");
+  const user = await getUserWithRole("accountant");
   // FR-5: only accounts that issue cheques.
   const accounts = (await getActiveAccounts(user.organizationId)).filter((a) => a.issuesCheques);
   const suggestions = await suggestChequeNumbers(user.organizationId);

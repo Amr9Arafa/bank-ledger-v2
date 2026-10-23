@@ -13,7 +13,12 @@ export type LedgerErrorCode =
   | "chequeNumberTaken"
   | "notIssued"
   | "notCleared"
-  | "clearedBeforeIssue";
+  | "clearedBeforeIssue"
+  | "cannotChangeOwnRole"
+  | "userNotFound"
+  | "emailTaken"
+  | "secretKeyMissing"
+  | "openingAfterTransactions";
 
 // A business rule was broken. Thrown inside the DB transaction, so nothing is saved.
 export class LedgerError extends Error {

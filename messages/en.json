@@ -22,7 +22,14 @@
   },
   "nav": {
     "home": "Home",
-    "cheques": "Cheques"
+    "cheques": "Cheques",
+    "settings": "Settings",
+    "signOut": "Sign out",
+    "roles": {
+      "admin": "Admin",
+      "accountant": "Accountant",
+      "viewer": "Viewer"
+    }
   },
   "movement": {
     "title": "New movement",
@@ -76,7 +83,19 @@
     "chequeNumberTaken": "This cheque number is already used on this account.",
     "notIssued": "This cheque is no longer outstanding (cleared or cancelled).",
     "notCleared": "This cheque is not cleared.",
-    "clearedBeforeIssue": "The cleared date is before the cheque's issue date."
+    "clearedBeforeIssue": "The cleared date is before the cheque's issue date.",
+    "invalidEmail": "Enter a valid email.",
+    "invalidCredentials": "Wrong email or password.",
+    "noAccess": "This login has no access to the app.",
+    "passwordTooShort": "At least 8 characters.",
+    "invalidRole": "Choose a role.",
+    "invalidUser": "User not found.",
+    "cannotChangeOwnRole": "You cannot change your own role.",
+    "userNotFound": "User not found.",
+    "emailTaken": "This email is already registered.",
+    "secretKeyMissing": "Adding users needs SUPABASE_SECRET_KEY on the server.",
+    "unexpected": "Something went wrong. Please try again.",
+    "openingAfterTransactions": "There are movements before this date. Choose an earlier opening date."
   },
   "ledger": {
     "types": {
@@ -140,6 +159,46 @@
       "issued": "No outstanding cheques.",
       "cleared": "No cleared cheques.",
       "cancelled": "No cancelled cheques."
+    }
+  },
+  "login": {
+    "title": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "noAccess": "This login has no access to the app. Contact your admin.",
+    "signOut": "Sign out"
+  },
+  "settings": {
+    "users": "Users",
+    "addUser": "Add user",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "saveRole": "Save",
+    "firstPassword": "First password",
+    "firstPasswordNote": "Share the first password with the user securely. At least 8 characters.",
+    "createUser": "Add user",
+    "creating": "Adding…",
+    "userCreated": "User added. They can sign in now.",
+    "bankAccounts": "Bank accounts",
+    "auditLog": "Audit log",
+    "auditNote": "The last {count} changes to financial data.",
+    "when": "When",
+    "who": "Who",
+    "action": "Action",
+    "what": "On",
+    "accountChange": "Account details",
+    "actions": {
+      "create": "Created",
+      "void": "Voided",
+      "clear": "Cheque cleared",
+      "cancel": "Cheque cancelled",
+      "unclear": "Clear undone",
+      "update": "Edited",
+      "archive": "Archived",
+      "unarchive": "Unarchived"
     }
   }
 }

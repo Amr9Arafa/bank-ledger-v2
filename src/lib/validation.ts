@@ -127,3 +127,22 @@ export type CancelChequeInput = VoidInput;
 export const transactionIdSchema = z.object({
   transactionId: z.uuid({ message: "invalidTransaction" }),
 });
+
+export const signInSchema = z.object({
+  email: z.email({ message: "invalidEmail" }),
+  password: z.string({ error: "required" }).min(1, "required"),
+});
+
+// Admin creates a user and sets a first password (no public sign-up).
+export const newUserSchema = z.object({
+  email: z.email({ message: "invalidEmail" }),
+  name: requiredText(100),
+  role: z.enum(["admin", "accountant", "viewer"], { message: "invalidRole" }),
+  password: z.string({ error: "required" }).min(8, "passwordTooShort").max(72, "tooLong"),
+});
+export type NewUserInput = z.infer<typeof newUserSchema>;
+
+export const roleChangeSchema = z.object({
+  userId: z.uuid({ message: "invalidUser" }),
+  role: z.enum(["admin", "accountant", "viewer"], { message: "invalidRole" }),
+});
