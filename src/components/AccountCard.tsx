@@ -39,6 +39,14 @@ export default function AccountCard({ account }: { account: AccountBalance }) {
             {formatEGP(account.bankBalanceMinor, locale)}
           </dd>
         </div>
+        {account.issuesCheques && (
+          <div className="flex justify-between gap-4">
+            <dt className="text-foreground/60">{t("outstandingCheques")}</dt>
+            <dd className="tabular-nums">
+              {formatEGP(account.outstandingChequesMinor, locale)}
+            </dd>
+          </div>
+        )}
       </dl>
     </article>
   );

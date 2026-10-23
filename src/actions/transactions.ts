@@ -18,6 +18,7 @@ import {
   voidTransaction,
 } from "@/server/ledger/transactions";
 import { LedgerError } from "@/server/ledger/types";
+import { asInlineAction, formValues, type InlineActionState } from "./form-data";
 
 export type MovementFormState = {
   // Field name -> error key under "errors" in messages/*.json.
@@ -43,10 +44,7 @@ export async function saveMovement(
   const user = await getCurrentUser();
   requireRole(user, "accountant");
 
-  const values: Record<string, string> = {};
-  for (const [key, value] of formData) {
-    if (typeof value === "string" && !key.startsWith("$ACTION")) values[key] = value;
-  }
+  const values = formValues(formData);
   const { intent, allowDuplicate, ...input } = values;
 
   let result: CreateResult;
@@ -89,30 +87,16 @@ export async function saveMovement(
   return redirect({ href: `/accounts/${accountId}`, locale: await getLocale() });
 }
 
-export type VoidFormState = { error?: string; done?: boolean };
-
 export async function voidMovement(
-  _previous: VoidFormState,
+  _previous: InlineActionState,
   formData: FormData,
-): Promise<VoidFormState> {
+): Promise<InlineActionState> {
   const user = await getCurrentUser();
   requireRole(user, "accountant");
 
-  const parsed = voidSchema.safeParse({
-    transactionId: formData.get("transactionId"),
-    reason: formData.get("reason"),
-  });
-  if (!parsed.success) {
-    return { error: Object.values(fieldErrors(parsed.error))[0] ?? "required" };
-  }
-
-  try {
-    await voidTransaction(user, parsed.data);
-  } catch (error) {
-    if (error instanceof LedgerError) return { error: error.code };
-    throw error;
-  }
-
-  revalidatePath("/[locale]", "layout");
-  return { done: true };
+  const parsed = voidSchema.safeParse(formValues(formData));
+  if (!parsed.success) return { error: Object.values(fieldErrors(parsed.error))[0] };
+  const result = await asInlineAction(() => voidTransaction(user, parsed.data));
+  if (result.done) revalidatePath("/[locale]", "layout");
+  return result;
 }

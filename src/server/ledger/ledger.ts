@@ -11,6 +11,7 @@ export type LedgerRow = {
   description: string | null;
   chequeNumber: string | null;
   transactionDate: string;
+  clearedDate: string | null;
   status: string;
   statusReason: string | null;
   notes: string | null;
@@ -35,6 +36,7 @@ export async function getAccountLedger(
     description: string | null;
     cheque_number: string | null;
     transaction_date: string;
+    cleared_date: string | null;
     status: string;
     status_reason: string | null;
     notes: string | null;
@@ -51,7 +53,7 @@ export async function getAccountLedger(
     )
     select
       s.id, s.type, s.signed_amount_minor, s.party_name, s.reference, s.description,
-      s.cheque_number, s.transaction_date::text, s.status, s.status_reason, s.notes,
+      s.cheque_number, s.transaction_date::text, s.cleared_date::text, s.status, s.status_reason, s.notes,
       other.name as counterpart_name,
       -- Cumulative sum oldest-first, over ALL rows, before any display order or filter.
       a.opening_balance_minor + sum(
@@ -75,6 +77,7 @@ export async function getAccountLedger(
     description: r.description,
     chequeNumber: r.cheque_number,
     transactionDate: r.transaction_date,
+    clearedDate: r.cleared_date,
     status: r.status,
     statusReason: r.status_reason,
     notes: r.notes,

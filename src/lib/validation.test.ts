@@ -104,3 +104,22 @@ test("void needs a reason", () => {
     reason: "required",
   });
 });
+
+test("cheque: due date optional, never before issue date", async () => {
+  const { chequeSchema } = await import("./validation.ts");
+  const base = {
+    bankAccountId: A,
+    chequeNumber: "000124",
+    partyName: "Supplier",
+    transactionDate: "2026-10-05",
+    amountMinor: "300",
+  };
+  assert.equal(chequeSchema.parse({ ...base, dueDate: "" }).dueDate, null);
+  assert.equal(chequeSchema.parse({ ...base, dueDate: "2026-11-01" }).dueDate, "2026-11-01");
+  assert.deepEqual(errorsOf(chequeSchema, { ...base, dueDate: "2026-10-01" }), {
+    dueDate: "dueBeforeIssue",
+  });
+  assert.deepEqual(errorsOf(chequeSchema, { ...base, chequeNumber: "12 3" }), {
+    chequeNumber: "invalidChequeNumber",
+  });
+});

@@ -14,10 +14,15 @@
     "bookBalance": "Book balance",
     "bankBalance": "Bank balance",
     "issuesCheques": "Issues cheques",
-    "newMovement": "New movement"
+    "newMovement": "New movement",
+    "newTransfer": "New transfer",
+    "newCheque": "New cheque",
+    "outstandingCheques": "Outstanding cheques",
+    "chequesDueSoon": "{count, plural, one {# cheque} other {# cheques}} due within 7 days or overdue, totalling {total}"
   },
   "nav": {
-    "home": "Home"
+    "home": "Home",
+    "cheques": "Cheques"
   },
   "movement": {
     "title": "New movement",
@@ -64,7 +69,14 @@
     "transactionNotFound": "Movement not found.",
     "invalidTransaction": "Movement not found.",
     "notActive": "This movement is already voided.",
-    "chequeUseCancel": "Cheques are cancelled from the cheques page."
+    "chequeUseCancel": "Cheques are cancelled from the cheques page.",
+    "invalidChequeNumber": "Cheque numbers may contain only digits, Latin letters and dashes.",
+    "dueBeforeIssue": "The due date is before the issue date.",
+    "accountNoCheques": "This account does not issue cheques.",
+    "chequeNumberTaken": "This cheque number is already used on this account.",
+    "notIssued": "This cheque is no longer outstanding (cleared or cancelled).",
+    "notCleared": "This cheque is not cleared.",
+    "clearedBeforeIssue": "The cleared date is before the cheque's issue date."
   },
   "ledger": {
     "types": {
@@ -92,6 +104,42 @@
     "keep": "Keep",
     "voided": "Voided",
     "voidedBecause": "Voided: {reason}",
-    "voidPairNote": "Both halves of the internal transfer will be voided."
+    "voidPairNote": "Both halves of the internal transfer will be voided.",
+    "chequeOutstanding": "Outstanding",
+    "chequeClearedOn": "Cleared {date}"
+  },
+  "cheque": {
+    "title": "Cheques",
+    "newTitle": "New cheque",
+    "number": "Cheque number",
+    "payee": "Payee",
+    "account": "Account",
+    "issueDate": "Issue date",
+    "dueDate": "Due date",
+    "clearedDate": "Cleared date",
+    "saved": "Cheque saved. You can enter the next one.",
+    "noChequeAccounts": "No account issues cheques.",
+    "tabs": {
+      "issued": "Outstanding",
+      "cleared": "Cleared",
+      "cancelled": "Cancelled"
+    },
+    "count": "{count, plural, =0 {No cheques} one {# cheque} other {# cheques}}",
+    "total": "Total",
+    "overdue": "Overdue",
+    "dueSoon": "Due soon",
+    "markCleared": "Mark cleared",
+    "confirmClear": "Confirm cleared",
+    "cancel": "Cancel cheque",
+    "confirmCancel": "Confirm cancel",
+    "cancelReason": "Reason for cancelling",
+    "undoClear": "Undo clear",
+    "confirmUndoClear": "Confirm undo",
+    "undoClearNote": "The cheque goes back to the outstanding list.",
+    "empty": {
+      "issued": "No outstanding cheques.",
+      "cleared": "No cleared cheques.",
+      "cancelled": "No cancelled cheques."
+    }
   }
 }

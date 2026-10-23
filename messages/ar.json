@@ -14,10 +14,15 @@
     "bookBalance": "الرصيد الدفتري",
     "bankBalance": "رصيد البنك",
     "issuesCheques": "يصدر شيكات",
-    "newMovement": "حركة جديدة"
+    "newMovement": "حركة جديدة",
+    "newTransfer": "تحويل وارد جديد",
+    "newCheque": "شيك جديد",
+    "outstandingCheques": "شيكات لم تُصرف",
+    "chequesDueSoon": "{count, plural, one {شيك واحد مستحق} two {شيكان مستحقان} few {# شيكات مستحقة} many {# شيكًا مستحقًا} other {# شيك مستحق}} خلال ٧ أيام أو متأخر، بإجمالي {total}"
   },
   "nav": {
-    "home": "الرئيسية"
+    "home": "الرئيسية",
+    "cheques": "الشيكات"
   },
   "movement": {
     "title": "حركة جديدة",
@@ -64,7 +69,14 @@
     "transactionNotFound": "الحركة غير موجودة.",
     "invalidTransaction": "الحركة غير موجودة.",
     "notActive": "هذه الحركة ملغاة بالفعل.",
-    "chequeUseCancel": "الشيكات تُلغى من صفحة الشيكات."
+    "chequeUseCancel": "الشيكات تُلغى من صفحة الشيكات.",
+    "invalidChequeNumber": "رقم الشيك يقبل الأرقام والحروف اللاتينية والشرطة فقط.",
+    "dueBeforeIssue": "تاريخ الاستحقاق يسبق تاريخ الإصدار.",
+    "accountNoCheques": "هذا الحساب لا يصدر شيكات.",
+    "chequeNumberTaken": "رقم الشيك مستخدم من قبل في هذا الحساب.",
+    "notIssued": "هذا الشيك لم يعد قائمًا (تم صرفه أو إلغاؤه).",
+    "notCleared": "هذا الشيك ليس مصروفًا.",
+    "clearedBeforeIssue": "تاريخ الصرف يسبق تاريخ إصدار الشيك."
   },
   "ledger": {
     "types": {
@@ -92,6 +104,42 @@
     "keep": "تراجع",
     "voided": "ملغاة",
     "voidedBecause": "سبب الإلغاء: {reason}",
-    "voidPairNote": "سيتم إلغاء طرفي التحويل الداخلي معًا."
+    "voidPairNote": "سيتم إلغاء طرفي التحويل الداخلي معًا.",
+    "chequeOutstanding": "لم يُصرف",
+    "chequeClearedOn": "صُرف في {date}"
+  },
+  "cheque": {
+    "title": "الشيكات",
+    "newTitle": "شيك جديد",
+    "number": "رقم الشيك",
+    "payee": "المستفيد",
+    "account": "الحساب",
+    "issueDate": "تاريخ الإصدار",
+    "dueDate": "تاريخ الاستحقاق",
+    "clearedDate": "تاريخ الصرف",
+    "saved": "تم حفظ الشيك. يمكنك إدخال الشيك التالي.",
+    "noChequeAccounts": "لا يوجد حساب يصدر شيكات.",
+    "tabs": {
+      "issued": "لم تُصرف",
+      "cleared": "تم صرفها",
+      "cancelled": "ملغاة"
+    },
+    "count": "{count, plural, zero {لا توجد شيكات} one {شيك واحد} two {شيكان} few {# شيكات} many {# شيكًا} other {# شيك}}",
+    "total": "الإجمالي",
+    "overdue": "متأخر",
+    "dueSoon": "مستحق قريبًا",
+    "markCleared": "تم الصرف",
+    "confirmClear": "تأكيد الصرف",
+    "cancel": "إلغاء الشيك",
+    "confirmCancel": "تأكيد الإلغاء",
+    "cancelReason": "سبب الإلغاء",
+    "undoClear": "التراجع عن الصرف",
+    "confirmUndoClear": "تأكيد التراجع",
+    "undoClearNote": "سيعود الشيك إلى قائمة الشيكات التي لم تُصرف.",
+    "empty": {
+      "issued": "لا توجد شيكات لم تُصرف.",
+      "cleared": "لا توجد شيكات مصروفة.",
+      "cancelled": "لا توجد شيكات ملغاة."
+    }
   }
 }

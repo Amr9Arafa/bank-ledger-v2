@@ -159,3 +159,78 @@ test("voiding one half of an internal transfer voids both and restores balances"
     assert.equal(balances.find((x) => x.id === b.id)!.bookBalanceMinor, 0);
   });
 });
+
+test("cheque lifecycle: issue, number rules, clear, cancel, undo clear", { skip }, async () => {
+  const m = await load();
+  const c = await import("./cheques.ts");
+  await inRollback(async (tx) => {
+    const orgId = crypto.randomUUID();
+    const user = { id: ADMIN_ID, organizationId: orgId };
+    await tx.insert(m.organizations).values({ id: orgId, name: "Contract test" });
+    const [a, noCheques] = await tx
+      .insert(m.bankAccounts)
+      .values([
+        { organizationId: orgId, name: "A", bankName: "T", accountNumber: "1",
+          openingBalanceMinor: 100000, openingDate: "2026-01-01", issuesCheques: true },
+        { organizationId: orgId, name: "N", bankName: "T", accountNumber: "2",
+          openingBalanceMinor: 0, openingDate: "2026-01-01", issuesCheques: false },
+      ])
+      .returning();
+    const cheque = (chequeNumber: string, amountMinor: number, bankAccountId = a.id) =>
+      c.createCheque(
+        user,
+        { bankAccountId, chequeNumber, partyName: "Supplier", transactionDate: "2026-02-01",
+          dueDate: "2026-02-15", amountMinor, notes: null },
+        tx,
+      );
+    const code = async (fn: () => Promise<unknown>) => {
+      try {
+        await fn();
+        return "no error";
+      } catch (e) {
+        return (e as { code?: string }).code;
+      }
+    };
+
+    const first = await cheque("000123", 30000);
+    const second = await cheque("000124", 20000);
+    assert.equal(await code(() => cheque("000124", 1)), "chequeNumberTaken");
+    assert.equal(await code(() => cheque("9", 1, noCheques.id)), "accountNoCheques");
+    assert.deepEqual(await c.suggestChequeNumbers(orgId, tx), { [a.id]: "000125" });
+
+    let bal = (await m.getAccountBalances(orgId, tx)).find((x) => x.id === a.id)!;
+    assert.equal(bal.bookBalanceMinor, 50000); // 1000 - 300 - 200
+    assert.equal(bal.bankBalanceMinor, 100000); // nothing cashed yet
+    assert.equal(bal.outstandingChequesMinor, 50000);
+
+    assert.equal(
+      await code(() => c.clearCheque(user, { transactionId: first.id, clearedDate: "2026-01-31" }, tx)),
+      "clearedBeforeIssue",
+    );
+    await c.clearCheque(user, { transactionId: first.id, clearedDate: "2026-02-20" }, tx);
+    assert.equal(
+      await code(() => c.cancelCheque(user, { transactionId: first.id, reason: "x" }, tx)),
+      "notIssued",
+    );
+    await c.cancelCheque(user, { transactionId: second.id, reason: "Wrong payee" }, tx);
+
+    bal = (await m.getAccountBalances(orgId, tx)).find((x) => x.id === a.id)!;
+    assert.equal(bal.bookBalanceMinor, 70000); // cancelled counts nowhere
+    assert.equal(bal.bankBalanceMinor, 70000); // cleared counts in both
+    assert.equal(bal.outstandingChequesMinor, 0);
+
+    assert.deepEqual(
+      (await c.listCheques(orgId, "cleared", tx)).map((r) => [r.chequeNumber, r.clearedDate]),
+      [["000123", "2026-02-20"]],
+    );
+
+    await c.unclearCheque(user, first.id, tx);
+    bal = (await m.getAccountBalances(orgId, tx)).find((x) => x.id === a.id)!;
+    assert.equal(bal.bankBalanceMinor, 100000);
+    assert.equal(bal.outstandingChequesMinor, 30000);
+    assert.equal(
+      (await c.listCheques(orgId, "issued", tx))[0].dueDate,
+      "2026-02-15",
+    );
+  });
+});

@@ -3,7 +3,7 @@ import { auditLog } from "../db/schema.ts";
 import type { LedgerUser } from "./types.ts";
 
 type AuditEntry = {
-  action: "create" | "void";
+  action: "create" | "void" | "clear" | "cancel" | "unclear" | "update" | "archive" | "unarchive";
   before: unknown;
   after: unknown;
 } & ({ transactionId: string } | { bankAccountId: string });

@@ -88,3 +88,42 @@ export function fieldErrors(error: z.ZodError): Record<string, string> {
   }
   return errors;
 }
+
+// Issued cheque. dueDate is optional: empty means due on the issue date.
+export const chequeSchema = z
+  .object({
+    bankAccountId: accountId,
+    chequeNumber: z
+      .string({ error: "required" })
+      .trim()
+      .min(1, "required")
+      .max(30, "tooLong")
+      .regex(/^[0-9A-Za-z-]+$/, "invalidChequeNumber"),
+    partyName: requiredText(200),
+    transactionDate: day,
+    dueDate: z
+      .union([z.literal(""), day])
+      .optional()
+      .transform((d) => d || null),
+    amountMinor: amount,
+    notes,
+  })
+  .refine((v) => !v.dueDate || v.dueDate >= v.transactionDate, {
+    message: "dueBeforeIssue",
+    path: ["dueDate"],
+  });
+export type ChequeInput = z.infer<typeof chequeSchema>;
+
+export const clearChequeSchema = z.object({
+  transactionId: z.uuid({ message: "invalidTransaction" }),
+  clearedDate: day,
+});
+export type ClearChequeInput = z.infer<typeof clearChequeSchema>;
+
+export const cancelChequeSchema = voidSchema;
+export type CancelChequeInput = VoidInput;
+
+// Actions that only need the id of an existing transaction.
+export const transactionIdSchema = z.object({
+  transactionId: z.uuid({ message: "invalidTransaction" }),
+});

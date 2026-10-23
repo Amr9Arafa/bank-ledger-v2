@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
-import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { z } from "zod";
-import VoidButton from "@/components/VoidButton";
+import { voidMovement } from "@/actions/transactions";
+import InlineAction from "@/components/InlineAction";
 import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
+import { formatDay } from "@/lib/dates";
 import { formatEGP } from "@/lib/money";
 import { hasRole } from "@/server/auth/roles";
 import { getCurrentUser } from "@/server/auth/session";
@@ -23,22 +25,18 @@ export default async function AccountLedgerPage({
 
   const t = await getTranslations("ledger");
   const td = await getTranslations("dashboard");
-  const format = await getFormatter();
 
   const user = await getCurrentUser();
   // Scoped by organization: another company's account id is simply not found.
-  const account = (await getAccountBalances(user.organizationId)).find((a) => a.id === id);
+  // Archived accounts keep their history (FR-2), so include them here.
+  const account = (
+    await getAccountBalances(user.organizationId, undefined, { includeArchived: true })
+  ).find((a) => a.id === id);
   if (!account) notFound();
   const rows = await getAccountLedger(user.organizationId, id);
-  const canWrite = hasRole(user, "accountant");
+  const canWrite = hasRole(user, "accountant") && !account.archived;
 
-  // "2026-10-05" -> 05/10/2026 (Arabic digits in Arabic). Noon UTC is the same day in Cairo.
-  const day = (d: string) =>
-    format.dateTime(new Date(`${d}T12:00:00Z`), {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
+  const day = (d: string) => formatDay(d, locale);
   const details = (r: LedgerRow) => {
     if (r.type === "internal_out") return t("internalTo", { name: r.counterpartName ?? "" });
     if (r.type === "internal_in") return t("internalFrom", { name: r.counterpartName ?? "" });
@@ -109,6 +107,16 @@ export default async function AccountLedgerPage({
                       {t("voided")}
                     </span>
                   )}
+                  {r.status === "issued" && (
+                    <span className="ms-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">
+                      {t("chequeOutstanding")}
+                    </span>
+                  )}
+                  {r.status === "cleared" && r.clearedDate && (
+                    <span className="ms-2 rounded bg-green-50 px-1.5 py-0.5 text-xs text-green-800">
+                      {t("chequeClearedOn", { date: day(r.clearedDate) })}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <span className={isVoid(r) ? "text-foreground/50 line-through" : ""}>
@@ -139,9 +147,18 @@ export default async function AccountLedgerPage({
                 </td>
                 <td className="px-3 py-2">
                   {canWrite && r.status === "active" && (
-                    <VoidButton
+                    <InlineAction
+                      action={voidMovement}
                       transactionId={r.id}
-                      isInternal={r.type === "internal_in" || r.type === "internal_out"}
+                      label={t("void")}
+                      confirmLabel={t("confirmVoid")}
+                      keepLabel={t("keep")}
+                      input={{ name: "reason", type: "text", label: t("voidReason") }}
+                      note={
+                        r.type === "internal_in" || r.type === "internal_out"
+                          ? t("voidPairNote")
+                          : undefined
+                      }
                     />
                   )}
                 </td>

@@ -1,16 +1,11 @@
 "use client";
 
-import { useActionState, type ReactNode } from "react";
+import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import { saveMovement, type MovementFormState } from "@/actions/transactions";
-import type messages from "../../messages/en.json";
+import { inputClass, primaryButton, secondaryButton, useFieldHelpers } from "@/components/form";
 import type { FormType } from "@/lib/validation";
 import type { AccountOption } from "@/server/ledger/accounts";
-
-type ErrorKey = keyof (typeof messages)["errors"];
-
-const inputClass =
-  "w-full rounded-md border border-foreground/20 bg-background px-3 py-2 aria-invalid:border-red-600";
 
 export default function MovementForm({
   type,
@@ -25,7 +20,6 @@ export default function MovementForm({
   today: string;
 }) {
   const t = useTranslations("movement");
-  const te = useTranslations("errors");
   const preselected = accountId
     ? { [type === "internal" ? "fromAccountId" : "bankAccountId"]: accountId }
     : {};
@@ -36,26 +30,7 @@ export default function MovementForm({
   const [state, formAction, pending] = useActionState(saveMovement, initial);
   const v = state.values;
 
-  // Shows a label, the input, and the translated error for one field.
-  const field = (name: string, label: string, input: ReactNode) => (
-    <div>
-      <label htmlFor={name} className="mb-1 block text-sm font-medium">
-        {label}
-      </label>
-      {input}
-      {state.errors[name] && (
-        <p id={`${name}-error`} className="mt-1 text-sm text-red-600">
-          {te(state.errors[name] as ErrorKey)}
-        </p>
-      )}
-    </div>
-  );
-  const a11y = (name: string) => ({
-    id: name,
-    name,
-    "aria-invalid": Boolean(state.errors[name]),
-    "aria-describedby": state.errors[name] ? `${name}-error` : undefined,
-  });
+  const { field, a11y, errorText } = useFieldHelpers(state.errors);
 
   const accountSelect = (name: string, options: AccountOption[]) => (
     <select {...a11y(name)} defaultValue={v[name] ?? ""} required className={inputClass}>
@@ -174,7 +149,7 @@ export default function MovementForm({
         )}
         {state.formError && (
           <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-            {te(state.formError as ErrorKey)}
+            {errorText(state.formError)}
           </p>
         )}
         {state.saved && !pending && (
@@ -188,7 +163,7 @@ export default function MovementForm({
           name="intent"
           value="save"
           disabled={pending}
-          className="rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-50"
+          className={primaryButton}
         >
           {pending ? t("saving") : state.duplicate ? t("saveAnyway") : t("save")}
         </button>
@@ -197,7 +172,7 @@ export default function MovementForm({
           name="intent"
           value="saveNew"
           disabled={pending}
-          className="rounded-md border border-foreground/20 px-4 py-2 disabled:opacity-50"
+          className={secondaryButton}
         >
           {t("saveNew")}
         </button>
