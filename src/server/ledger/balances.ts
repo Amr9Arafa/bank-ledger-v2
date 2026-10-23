@@ -7,6 +7,8 @@ export type AccountBalance = {
   bankName: string;
   accountNumber: string;
   issuesCheques: boolean;
+  openingBalanceMinor: number;
+  openingDate: string;
   // What is really ours after paying every active cheque.
   bookBalanceMinor: number;
   // What the bank statement should show: only cleared cheques count.
@@ -25,6 +27,8 @@ export async function getAccountBalances(
     bank_name: string;
     account_number: string;
     issues_cheques: boolean;
+    opening_balance_minor: string;
+    opening_date: string;
     book_balance_minor: string;
     bank_balance_minor: string;
   }>(sql`
@@ -34,6 +38,8 @@ export async function getAccountBalances(
       a.bank_name,
       a.account_number,
       a.issues_cheques,
+      a.opening_balance_minor,
+      a.opening_date::text,
       a.opening_balance_minor + coalesce(sum(
         case when t.type in ('transfer_in', 'deposit', 'internal_in')
              then t.amount_minor else -t.amount_minor end
@@ -59,6 +65,8 @@ export async function getAccountBalances(
     bankName: r.bank_name,
     accountNumber: r.account_number,
     issuesCheques: r.issues_cheques,
+    openingBalanceMinor: Number(r.opening_balance_minor),
+    openingDate: r.opening_date,
     bookBalanceMinor: Number(r.book_balance_minor),
     bankBalanceMinor: Number(r.bank_balance_minor),
   }));

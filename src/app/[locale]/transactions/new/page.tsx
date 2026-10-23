@@ -17,12 +17,14 @@ export default async function NewMovementPage({
   const t = await getTranslations("movement");
 
   // ?type=fee selects the tab; anything else falls back to an incoming transfer.
-  const requested = (await searchParams).type;
+  const { type: requested, account: requestedAccount } = await searchParams;
   const type: FormType = FORM_TYPES.find((f) => f === requested) ?? "transfer_in";
 
   const user = await getCurrentUser();
   requireRole(user, "accountant");
   const accounts = await getActiveAccounts(user.organizationId);
+  // ?account=<id> from an account's ledger page pre-selects that account.
+  const accountId = accounts.find((a) => a.id === requestedAccount)?.id;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -32,7 +34,10 @@ export default async function NewMovementPage({
         {FORM_TYPES.map((f) => (
           <Link
             key={f}
-            href={{ pathname: "/transactions/new", query: { type: f } }}
+            href={{
+              pathname: "/transactions/new",
+              query: accountId ? { type: f, account: accountId } : { type: f },
+            }}
             aria-current={f === type ? "page" : undefined}
             className="rounded-full border border-foreground/15 px-3 py-1.5 text-sm aria-[current=page]:bg-foreground aria-[current=page]:text-background"
           >
@@ -43,7 +48,13 @@ export default async function NewMovementPage({
 
       <div className="mt-6">
         {/* key: switching tabs starts a fresh form instead of keeping the old one's state. */}
-        <MovementForm key={type} type={type} accounts={accounts} today={todayInCairo()} />
+        <MovementForm
+          key={type}
+          type={type}
+          accounts={accounts}
+          accountId={accountId}
+          today={todayInCairo()}
+        />
       </div>
     </div>
   );

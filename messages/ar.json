@@ -65,5 +65,33 @@
     "invalidTransaction": "الحركة غير موجودة.",
     "notActive": "هذه الحركة ملغاة بالفعل.",
     "chequeUseCancel": "الشيكات تُلغى من صفحة الشيكات."
+  },
+  "ledger": {
+    "types": {
+      "transfer_in": "تحويل وارد",
+      "deposit": "إيداع",
+      "fee": "مصروفات بنكية",
+      "internal_in": "تحويل داخلي وارد",
+      "internal_out": "تحويل داخلي صادر",
+      "cheque": "شيك"
+    },
+    "date": "التاريخ",
+    "type": "النوع",
+    "details": "البيان",
+    "reference": "المرجع",
+    "amount": "المبلغ",
+    "balance": "الرصيد",
+    "actions": "إجراءات",
+    "openingBalance": "الرصيد الافتتاحي",
+    "empty": "لا توجد حركات بعد.",
+    "internalTo": "إلى {name}",
+    "internalFrom": "من {name}",
+    "void": "إلغاء",
+    "voidReason": "سبب الإلغاء",
+    "confirmVoid": "تأكيد الإلغاء",
+    "keep": "تراجع",
+    "voided": "ملغاة",
+    "voidedBecause": "سبب الإلغاء: {reason}",
+    "voidPairNote": "سيتم إلغاء طرفي التحويل الداخلي معًا."
   }
 }

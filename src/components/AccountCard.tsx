@@ -1,4 +1,5 @@
 import { useLocale, useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { formatEGP } from "@/lib/money";
 import type { AccountBalance } from "@/server/ledger/balances";
 
@@ -11,7 +12,9 @@ export default function AccountCard({ account }: { account: AccountBalance }) {
       <header className="flex items-start justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">
-            <bdi>{account.name}</bdi>
+            <Link href={`/accounts/${account.id}`} className="hover:underline">
+              <bdi>{account.name}</bdi>
+            </Link>
           </h2>
           <p className="text-sm text-foreground/60">
             <bdi>{account.bankName}</bdi> · <bdi>{account.accountNumber}</bdi>

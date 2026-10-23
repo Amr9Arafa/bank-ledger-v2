@@ -1,0 +1,168 @@
+import { notFound } from "next/navigation";
+import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
+import { z } from "zod";
+import VoidButton from "@/components/VoidButton";
+import { Link } from "@/i18n/navigation";
+import type { Locale } from "@/i18n/routing";
+import { formatEGP } from "@/lib/money";
+import { hasRole } from "@/server/auth/roles";
+import { getCurrentUser } from "@/server/auth/session";
+import { getAccountBalances } from "@/server/ledger/balances";
+import { getAccountLedger, type LedgerRow } from "@/server/ledger/ledger";
+
+type RowType = "transfer_in" | "deposit" | "fee" | "internal_in" | "internal_out" | "cheque";
+
+export default async function AccountLedgerPage({
+  params,
+}: PageProps<"/[locale]/accounts/[id]">) {
+  const { locale: rawLocale, id } = await params;
+  const locale = rawLocale as Locale;
+  setRequestLocale(locale);
+  // A malformed id would make Postgres throw; treat it as "not found".
+  if (!z.uuid().safeParse(id).success) notFound();
+
+  const t = await getTranslations("ledger");
+  const td = await getTranslations("dashboard");
+  const format = await getFormatter();
+
+  const user = await getCurrentUser();
+  // Scoped by organization: another company's account id is simply not found.
+  const account = (await getAccountBalances(user.organizationId)).find((a) => a.id === id);
+  if (!account) notFound();
+  const rows = await getAccountLedger(user.organizationId, id);
+  const canWrite = hasRole(user, "accountant");
+
+  // "2026-10-05" -> 05/10/2026 (Arabic digits in Arabic). Noon UTC is the same day in Cairo.
+  const day = (d: string) =>
+    format.dateTime(new Date(`${d}T12:00:00Z`), {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  const details = (r: LedgerRow) => {
+    if (r.type === "internal_out") return t("internalTo", { name: r.counterpartName ?? "" });
+    if (r.type === "internal_in") return t("internalFrom", { name: r.counterpartName ?? "" });
+    return r.partyName ?? r.description ?? "";
+  };
+  const isVoid = (r: LedgerRow) => r.status === "voided" || r.status === "cancelled";
+
+  return (
+    <div className="mx-auto max-w-6xl">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">
+            <bdi>{account.name}</bdi>
+          </h1>
+          <p className="text-sm text-foreground/60">
+            <bdi>{account.bankName}</bdi> · <bdi>{account.accountNumber}</bdi>
+          </p>
+        </div>
+        {canWrite && (
+          <Link
+            href={{ pathname: "/transactions/new", query: { account: account.id } }}
+            className="rounded-md bg-foreground px-4 py-2 text-sm text-background"
+          >
+            {td("newMovement")}
+          </Link>
+        )}
+      </header>
+
+      <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-2 rounded-lg bg-foreground/5 p-4">
+        <div>
+          <dt className="text-xs text-foreground/60">{td("bookBalance")}</dt>
+          <dd className="text-xl font-semibold tabular-nums">
+            {formatEGP(account.bookBalanceMinor, locale)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-foreground/60">{td("bankBalance")}</dt>
+          <dd className="text-xl tabular-nums">{formatEGP(account.bankBalanceMinor, locale)}</dd>
+        </div>
+      </dl>
+
+      {/* Wide table: scrolls sideways inside its box on phones, never the whole page. */}
+      <div className="mt-6 overflow-x-auto rounded-lg border border-foreground/10">
+        <table className="w-full text-sm">
+          <thead className="bg-foreground/5 text-foreground/70">
+            <tr>
+              <th className="px-3 py-2 text-start font-medium">{t("date")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("type")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("details")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("reference")}</th>
+              <th className="px-3 py-2 text-end font-medium">{t("amount")}</th>
+              <th className="px-3 py-2 text-end font-medium">{t("balance")}</th>
+              <th className="px-3 py-2">
+                <span className="sr-only">{t("actions")}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="border-t border-foreground/10 align-top">
+                <td className="whitespace-nowrap px-3 py-2 tabular-nums">
+                  {day(r.transactionDate)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2">
+                  {t(`types.${r.type as RowType}`)}
+                  {isVoid(r) && (
+                    <span className="ms-2 rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-700">
+                      {t("voided")}
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  <span className={isVoid(r) ? "text-foreground/50 line-through" : ""}>
+                    <bdi>{details(r)}</bdi>
+                  </span>
+                  {isVoid(r) && r.statusReason && (
+                    <p className="text-xs text-foreground/60">
+                      {t("voidedBecause", { reason: r.statusReason })}
+                    </p>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-foreground/70">
+                  <bdi>{r.reference ?? r.chequeNumber ?? ""}</bdi>
+                </td>
+                <td
+                  className={`whitespace-nowrap px-3 py-2 text-end tabular-nums ${
+                    isVoid(r)
+                      ? "text-foreground/50 line-through"
+                      : r.signedAmountMinor < 0
+                        ? "text-red-700"
+                        : "text-green-700"
+                  }`}
+                >
+                  {formatEGP(r.signedAmountMinor, locale)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-end tabular-nums">
+                  {formatEGP(r.runningBalanceMinor, locale)}
+                </td>
+                <td className="px-3 py-2">
+                  {canWrite && r.status === "active" && (
+                    <VoidButton
+                      transactionId={r.id}
+                      isInternal={r.type === "internal_in" || r.type === "internal_out"}
+                    />
+                  )}
+                </td>
+              </tr>
+            ))}
+            <tr className="border-t border-foreground/10 bg-foreground/5">
+              <td className="whitespace-nowrap px-3 py-2 tabular-nums">
+                {day(account.openingDate)}
+              </td>
+              <td className="px-3 py-2" colSpan={4}>
+                {t("openingBalance")}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-end font-medium tabular-nums">
+                {formatEGP(account.openingBalanceMinor, locale)}
+              </td>
+              <td />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {rows.length === 0 && <p className="mt-4 text-foreground/70">{t("empty")}</p>}
+    </div>
+  );
+}

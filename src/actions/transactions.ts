@@ -7,6 +7,7 @@ import {
   fieldErrors,
   internalTransferSchema,
   movementSchema,
+  voidSchema,
 } from "@/lib/validation";
 import { requireRole } from "@/server/auth/roles";
 import { getCurrentUser } from "@/server/auth/session";
@@ -14,6 +15,7 @@ import {
   createInternalTransfer,
   createMovement,
   type CreateResult,
+  voidTransaction,
 } from "@/server/ledger/transactions";
 import { LedgerError } from "@/server/ledger/types";
 
@@ -81,7 +83,36 @@ export async function saveMovement(
     return { values: kept, errors: {}, saved: true };
   }
 
+  // Show the account the movement was saved to.
   // redirect() works by throwing, so it stays outside the try/catch above.
-  // The ledger page arrives in Step 4; until then, Save goes back to the dashboard.
-  return redirect({ href: "/", locale: await getLocale() });
+  const accountId = input.type === "internal" ? input.fromAccountId : input.bankAccountId;
+  return redirect({ href: `/accounts/${accountId}`, locale: await getLocale() });
+}
+
+export type VoidFormState = { error?: string; done?: boolean };
+
+export async function voidMovement(
+  _previous: VoidFormState,
+  formData: FormData,
+): Promise<VoidFormState> {
+  const user = await getCurrentUser();
+  requireRole(user, "accountant");
+
+  const parsed = voidSchema.safeParse({
+    transactionId: formData.get("transactionId"),
+    reason: formData.get("reason"),
+  });
+  if (!parsed.success) {
+    return { error: Object.values(fieldErrors(parsed.error))[0] ?? "required" };
+  }
+
+  try {
+    await voidTransaction(user, parsed.data);
+  } catch (error) {
+    if (error instanceof LedgerError) return { error: error.code };
+    throw error;
+  }
+
+  revalidatePath("/[locale]", "layout");
+  return { done: true };
 }

@@ -14,3 +14,8 @@ export const db = drizzle(client, { schema });
 // so tests can run them inside a transaction and roll everything back.
 export type Database = typeof db;
 export type Executor = Database | Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+// For scripts and tests: an open connection keeps the Node process alive.
+export async function closeDatabase() {
+  await client.end();
+}

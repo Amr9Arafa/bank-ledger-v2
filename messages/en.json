@@ -65,5 +65,33 @@
     "invalidTransaction": "Movement not found.",
     "notActive": "This movement is already voided.",
     "chequeUseCancel": "Cheques are cancelled from the cheques page."
+  },
+  "ledger": {
+    "types": {
+      "transfer_in": "Incoming transfer",
+      "deposit": "Deposit",
+      "fee": "Bank fee",
+      "internal_in": "Internal transfer in",
+      "internal_out": "Internal transfer out",
+      "cheque": "Cheque"
+    },
+    "date": "Date",
+    "type": "Type",
+    "details": "Details",
+    "reference": "Reference",
+    "amount": "Amount",
+    "balance": "Balance",
+    "actions": "Actions",
+    "openingBalance": "Opening balance",
+    "empty": "No movements yet.",
+    "internalTo": "To {name}",
+    "internalFrom": "From {name}",
+    "void": "Void",
+    "voidReason": "Reason for voiding",
+    "confirmVoid": "Confirm void",
+    "keep": "Keep",
+    "voided": "Voided",
+    "voidedBecause": "Voided: {reason}",
+    "voidPairNote": "Both halves of the internal transfer will be voided."
   }
 }

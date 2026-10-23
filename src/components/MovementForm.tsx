@@ -15,15 +15,24 @@ const inputClass =
 export default function MovementForm({
   type,
   accounts,
+  accountId,
   today,
 }: {
   type: FormType;
   accounts: AccountOption[];
+  // Pre-selected account, e.g. when coming from that account's ledger.
+  accountId?: string;
   today: string;
 }) {
   const t = useTranslations("movement");
   const te = useTranslations("errors");
-  const initial: MovementFormState = { errors: {}, values: { type, transactionDate: today } };
+  const preselected = accountId
+    ? { [type === "internal" ? "fromAccountId" : "bankAccountId"]: accountId }
+    : {};
+  const initial: MovementFormState = {
+    errors: {},
+    values: { type, transactionDate: today, ...preselected },
+  };
   const [state, formAction, pending] = useActionState(saveMovement, initial);
   const v = state.values;
 
