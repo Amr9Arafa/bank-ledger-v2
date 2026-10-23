@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db } from "@/server/db/client";
+import { db, type Executor } from "../db/client.ts";
 
 export type AccountBalance = {
   id: string;
@@ -17,8 +17,9 @@ export type AccountBalance = {
 // Credits add, debits subtract; voided and cancelled rows count nowhere.
 export async function getAccountBalances(
   organizationId: string,
+  database: Executor = db,
 ): Promise<AccountBalance[]> {
-  const rows = await db.execute<{
+  const rows = await database.execute<{
     id: string;
     name: string;
     bank_name: string;
