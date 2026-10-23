@@ -16,8 +16,10 @@ export function supabaseConfig() {
 
 // Reads and writes the session cookie of the current request.
 export async function createSupabaseServerClient() {
-  const { url, publishableKey } = supabaseConfig();
+  // cookies() first: it marks the page as per-request, so `next build` never prerenders
+  // it, and a missing env var surfaces at runtime instead of crashing the build.
   const cookieStore = await cookies();
+  const { url, publishableKey } = supabaseConfig();
   return createServerClient(url, publishableKey, {
     cookies: {
       getAll: () => cookieStore.getAll(),
