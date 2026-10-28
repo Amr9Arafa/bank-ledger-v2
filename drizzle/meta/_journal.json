@@ -15,6 +15,13 @@
       "when": 1793203594536,
       "tag": "0001_transfer_out",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793224603797,
+      "tag": "0002_pending_entries",
+      "breakpoints": true
     }
   ]
 }

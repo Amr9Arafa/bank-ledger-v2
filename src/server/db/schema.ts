@@ -39,6 +39,9 @@ export const TRANSACTION_TYPES = [...CREDIT_TYPES, ...DEBIT_TYPES] as const;
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 export const MOVEMENT_STATUSES = ["active", "voided"] as const;
 export const CHEQUE_STATUSES = ["issued", "cleared", "cancelled"] as const;
+export const PENDING_ENTRY_TYPES = ["transaction", "cheque"] as const;
+export const PENDING_ENTRY_SOURCES = ["web", "telegram"] as const;
+export const PENDING_ENTRY_STATUSES = ["pending", "approved", "rejected"] as const;
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -197,5 +200,62 @@ export const auditLog = pgTable(
       sql`num_nonnulls(${t.transactionId}, ${t.bankAccountId}) = 1`,
     ),
     index("audit_log_transaction").on(t.transactionId),
+  ],
+).enableRLS();
+
+// AI Inbox: what the LLM read from a message or photo, waiting for a person to approve it.
+// Nothing here counts in any balance; approving creates the real row in `transactions`.
+export const pendingEntries = pgTable(
+  "pending_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    type: text("type", { enum: PENDING_ENTRY_TYPES }).notNull(),
+    source: text("source", { enum: PENDING_ENTRY_SOURCES }).notNull(),
+    status: text("status", { enum: PENDING_ENTRY_STATUSES }).notNull().default("pending"),
+    rawText: text("raw_text"),
+    // Path in the private Storage bucket, not a public URL. Cleared when the image is
+    // deleted on reject.
+    imageUrl: text("image_url"),
+    // The model's output as it came back: kept unedited, to compare with what was approved.
+    extracted: jsonb("extracted").notNull(),
+    // [{ code, ...params }]: codes are keys under "inbox.warnings" in messages/*.json.
+    warnings: jsonb("warnings").notNull().default([]),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    reviewedBy: uuid("reviewed_by").references(() => users.id),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    // Both outcomes (movement or cheque) are rows in `transactions`.
+    resultingRecordId: uuid("resulting_record_id").references(() => transactions.id),
+    // Telegram message id, so a webhook retry never creates a second entry.
+    externalMessageId: text("external_message_id").unique(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check("pending_entries_type_check", sql`${t.type} in ('transaction', 'cheque')`),
+    check("pending_entries_source_check", sql`${t.source} in ('web', 'telegram')`),
+    check(
+      "pending_entries_status_check",
+      sql`${t.status} in ('pending', 'approved', 'rejected')`,
+    ),
+    // Something to extract from. A rejected entry may have lost its image.
+    check(
+      "pending_entries_input_check",
+      sql`${t.status} = 'rejected' or num_nonnulls(${t.rawText}, ${t.imageUrl}) > 0`,
+    ),
+    // Reviewed exactly when no longer pending.
+    check(
+      "pending_entries_review_check",
+      sql`(${t.status} = 'pending') = (${t.reviewedBy} is null and ${t.reviewedAt} is null)`,
+    ),
+    // Only approved entries point at a real record, and they always do.
+    check(
+      "pending_entries_result_check",
+      sql`(${t.status} = 'approved') = (${t.resultingRecordId} is not null)`,
+    ),
+    index("pending_entries_inbox").on(t.organizationId, t.status, t.createdAt),
   ],
 ).enableRLS();
