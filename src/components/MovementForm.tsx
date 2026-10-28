@@ -95,11 +95,11 @@ export default function MovementForm({
         )}
       </div>
 
-      {type === "transfer_in" && (
+      {(type === "transfer_in" || type === "transfer_out") && (
         <div className="grid gap-4 sm:grid-cols-2">
           {field(
             "partyName",
-            t("sender"),
+            type === "transfer_in" ? t("sender") : t("beneficiary"),
             <input
               type="text"
               {...a11y("partyName")}
@@ -122,7 +122,7 @@ export default function MovementForm({
         </div>
       )}
 
-      {(type === "deposit" || type === "fee") &&
+      {type === "fee" &&
         field(
           "description",
           t("description"),
@@ -138,7 +138,14 @@ export default function MovementForm({
       {field(
         "notes",
         `${t("notes")} ${t("optional")}`,
-        <textarea {...a11y("notes")} defaultValue={v.notes ?? ""} rows={2} className={inputClass} />,
+        <textarea
+          {...a11y("notes")}
+          defaultValue={v.notes ?? ""}
+          // Deposits are recorded as incoming transfers; the note says so.
+          placeholder={type === "transfer_in" ? t("notesDepositHint") : undefined}
+          rows={2}
+          className={inputClass}
+        />,
       )}
 
       <div aria-live="polite">

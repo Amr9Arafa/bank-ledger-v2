@@ -11,8 +11,8 @@ import { parseLedgerFilters } from "@/lib/validation";
 import { getSessionUser } from "@/server/auth/session";
 import { getAccountBalances } from "@/server/ledger/balances";
 import { getAccountLedger } from "@/server/ledger/ledger";
+import type { TransactionType } from "@/server/db/schema";
 
-type RowType = "transfer_in" | "deposit" | "fee" | "internal_in" | "internal_out" | "cheque";
 type Status = "active" | "voided" | "issued" | "cleared" | "cancelled";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/[locale]/accounts/[id]/export">) {
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/[locale]/acc
     // Oldest first reads naturally in a spreadsheet; amounts are plain decimals (EGP).
     ...rows.toReversed().map((r) => [
       r.transactionDate,
-      t(`types.${r.type as RowType}`),
+      t(`types.${r.type as TransactionType}`),
       details(r),
       r.reference,
       r.chequeNumber,

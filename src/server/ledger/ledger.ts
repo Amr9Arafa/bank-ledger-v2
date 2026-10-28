@@ -151,7 +151,7 @@ export async function listRecentMovements(
     view === "in"
       ? sql`and t.type in ('transfer_in', 'deposit', 'internal_in')`
       : view === "out"
-        ? sql`and t.type in ('cheque', 'fee', 'internal_out')`
+        ? sql`and t.type in ('transfer_out', 'cheque', 'fee', 'internal_out')`
         : view === "cheques"
           ? sql`and t.type = 'cheque'`
           : sql``;

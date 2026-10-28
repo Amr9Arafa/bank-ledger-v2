@@ -11,6 +11,7 @@ import { formatDay, formatLongDay, todayInCairo } from "@/lib/dates";
 import { formatEGP } from "@/lib/money";
 import { hasRole } from "@/server/auth/roles";
 import { getCurrentUser } from "@/server/auth/session";
+import type { TransactionType } from "@/server/db/schema";
 import { getAccountBalancesForRequest } from "@/server/ledger/cached";
 import { listCheques } from "@/server/ledger/cheques";
 import {
@@ -20,7 +21,6 @@ import {
   type RecentMovement,
 } from "@/server/ledger/ledger";
 
-type RowType = "transfer_in" | "deposit" | "fee" | "internal_in" | "internal_out" | "cheque";
 // How many upcoming cheques the dashboard lists; the cheques page has them all.
 const UPCOMING_LIMIT = 5;
 
@@ -177,7 +177,7 @@ export default async function DashboardPage({ params, searchParams }: PageProps<
                               <span className="rounded-sm bg-surface-muted px-1.5 py-0.5 text-[11px] text-foreground-secondary">
                                 {m.type === "cheque"
                                   ? t("chequeBadge", { number: m.chequeNumber ?? "" })
-                                  : tl(`types.${m.type as RowType}`)}
+                                  : tl(`types.${m.type as TransactionType}`)}
                               </span>
                               {m.status === "issued" && (
                                 <span className="rounded-sm bg-warning-tint px-1.5 py-0.5 text-[11px] text-warning">

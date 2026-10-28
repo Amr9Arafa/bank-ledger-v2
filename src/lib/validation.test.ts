@@ -56,13 +56,23 @@ test("transfer_in: errors are translation keys per field", () => {
   );
 });
 
-test("deposit and fee need a description, not a party", () => {
+test("fee needs a description, not a party", () => {
   const base = { bankAccountId: A, transactionDate: "2026-10-05", amountMinor: "50" };
   assert.deepEqual(errorsOf(movementSchema, { ...base, type: "fee" }), {
     description: "required",
   });
   const fee = movementSchema.parse({ ...base, type: "fee", description: "Monthly fee" });
   assert.equal(fee.amountMinor, 5000);
+});
+
+test("outgoing transfer needs a beneficiary; deposit is no longer accepted", () => {
+  const base = { bankAccountId: A, transactionDate: "2026-10-05", amountMinor: "75" };
+  assert.deepEqual(errorsOf(movementSchema, { ...base, type: "transfer_out" }), {
+    partyName: "required",
+  });
+  const out = movementSchema.parse({ ...base, type: "transfer_out", partyName: "Supplier" });
+  assert.equal(out.amountMinor, 7500);
+  assert.ok("type" in errorsOf(movementSchema, { ...base, type: "deposit", description: "x" }));
 });
 
 test("missing amount is required", () => {
@@ -130,7 +140,8 @@ test("ledger filters keep valid values and drop bad ones", async () => {
     parseLedgerFilters({ from: "2026-01-01", to: "bad", type: "cheque", status: "x", q: "  REF1 " }),
     { from: "2026-01-01", to: undefined, type: "cheque", status: undefined, q: "REF1" },
   );
-  assert.deepEqual(parseLedgerFilters({ type: ["fee", "deposit"], q: "" }), {
+  assert.equal(parseLedgerFilters({ type: "deposit" }).type, undefined); // no longer a filter
+  assert.deepEqual(parseLedgerFilters({ type: ["fee", "transfer_out"], q: "" }), {
     from: undefined,
     to: undefined,
     type: "fee",

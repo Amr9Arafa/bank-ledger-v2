@@ -4,8 +4,8 @@ import type { Locale } from "@/i18n/routing";
 import { formatEGP } from "@/lib/money";
 import { getUserWithRole } from "@/server/auth/session";
 import { listAudit } from "@/server/ledger/audit";
+import type { TransactionType } from "@/server/db/schema";
 
-type RowType = "transfer_in" | "deposit" | "fee" | "internal_in" | "internal_out" | "cheque";
 type Action = "create" | "void" | "clear" | "cancel" | "unclear" | "update" | "archive" | "unarchive";
 
 export default async function AuditPage({ params }: PageProps<"/[locale]/settings/audit">) {
@@ -53,7 +53,7 @@ export default async function AuditPage({ params }: PageProps<"/[locale]/setting
                 <td className="px-3 py-2">
                   {r.transactionType ? (
                     <>
-                      {tl(`types.${r.transactionType as RowType}`)}
+                      {tl(`types.${r.transactionType as TransactionType}`)}
                       {r.chequeNumber && <> #<bdi>{r.chequeNumber}</bdi></>}
                       {r.partyName && <> · <bdi>{r.partyName}</bdi></>}
                     </>

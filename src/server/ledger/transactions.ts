@@ -41,7 +41,7 @@ async function loadAccountFor(
   return account;
 }
 
-// Transfer in, deposit or fee.
+// Incoming transfer, outgoing transfer or bank fee.
 export async function createMovement(
   user: LedgerUser,
   input: MovementInput,
@@ -57,29 +57,29 @@ export async function createMovement(
       "bankAccountId",
     );
 
-    if (input.type === "transfer_in") {
-      if (!account.receivesTransfers) {
-        throw new LedgerError("accountNoTransfers", "bankAccountId");
-      }
-      if (!options.allowDuplicate) {
-        const [existing] = await tx
-          .select({ id: transactions.id })
-          .from(transactions)
-          .where(
-            and(
-              eq(transactions.organizationId, user.organizationId),
-              eq(transactions.bankAccountId, input.bankAccountId),
-              eq(transactions.type, "transfer_in"),
-              eq(transactions.status, "active"),
-              eq(transactions.amountMinor, input.amountMinor),
-              eq(transactions.transactionDate, input.transactionDate),
-              // "is not distinct from" treats two empty references as equal.
-              sql`${transactions.reference} is not distinct from ${input.reference}`,
-            ),
-          )
-          .limit(1);
-        if (existing) return { status: "duplicate", existingId: existing.id };
-      }
+    if (input.type === "transfer_in" && !account.receivesTransfers) {
+      throw new LedgerError("accountNoTransfers", "bankAccountId");
+    }
+
+    // FR-4: same account, direction, amount, date and reference is likely a duplicate.
+    if (input.type !== "fee" && !options.allowDuplicate) {
+      const [existing] = await tx
+        .select({ id: transactions.id })
+        .from(transactions)
+        .where(
+          and(
+            eq(transactions.organizationId, user.organizationId),
+            eq(transactions.bankAccountId, input.bankAccountId),
+            eq(transactions.type, input.type),
+            eq(transactions.status, "active"),
+            eq(transactions.amountMinor, input.amountMinor),
+            eq(transactions.transactionDate, input.transactionDate),
+            // "is not distinct from" treats two empty references as equal.
+            sql`${transactions.reference} is not distinct from ${input.reference}`,
+          ),
+        )
+        .limit(1);
+      if (existing) return { status: "duplicate", existingId: existing.id };
     }
 
     const [row] = await tx
@@ -92,9 +92,9 @@ export async function createMovement(
         transactionDate: input.transactionDate,
         status: "active",
         notes: input.notes,
-        ...(input.type === "transfer_in"
-          ? { partyName: input.partyName, reference: input.reference }
-          : { description: input.description }),
+        ...(input.type === "fee"
+          ? { description: input.description }
+          : { partyName: input.partyName, reference: input.reference }),
         createdBy: user.id,
         updatedBy: user.id,
       })

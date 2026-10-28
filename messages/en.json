@@ -75,7 +75,7 @@
     "typeLabel": "Movement type",
     "types": {
       "transfer_in": "Incoming transfer",
-      "deposit": "Deposit",
+      "transfer_out": "Outgoing transfer",
       "fee": "Bank fee",
       "internal": "Between our accounts"
     },
@@ -95,7 +95,9 @@
     "saving": "Saving…",
     "saveAnyway": "Save anyway",
     "saved": "Saved. You can enter the next movement.",
-    "duplicateWarning": "A transfer with the same account, amount, date and reference already exists. Check the details, then press Save again to save anyway."
+    "duplicateWarning": "A transfer with the same account, amount, date and reference already exists. Check the details, then press Save again to save anyway.",
+    "beneficiary": "Beneficiary name",
+    "notesDepositHint": "e.g. Cash deposit at the branch"
   },
   "errors": {
     "required": "This field is required.",
@@ -145,7 +147,8 @@
       "fee": "Bank fee",
       "internal_in": "Internal transfer in",
       "internal_out": "Internal transfer out",
-      "cheque": "Cheque"
+      "cheque": "Cheque",
+      "transfer_out": "Outgoing transfer"
     },
     "date": "Date",
     "type": "Type",
@@ -258,10 +261,10 @@
     "reset": "Reset",
     "types": {
       "transfer_in": "Incoming transfer",
-      "deposit": "Deposit",
       "fee": "Bank fee",
       "internal": "Between our accounts",
-      "cheque": "Cheque"
+      "cheque": "Cheque",
+      "transfer_out": "Outgoing transfer"
     },
     "statuses": {
       "counted": "In the balance",

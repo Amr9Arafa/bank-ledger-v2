@@ -53,7 +53,9 @@ Reference implementation (v1, already working): https://github.com/Amr9Arafa/Ban
   - Book balance: opening + credits - debits, counting issued and cleared cheques.
   - Bank balance: same, but counting only cleared cheques.
 - Records are never deleted: movements are voided, cheques are cancelled.
-- Credits: `transfer_in`, `deposit`, `internal_in`. Debits: `cheque`, `fee`, `internal_out`.
+- Credits: `transfer_in`, `internal_in` (and legacy `deposit`). Debits: `transfer_out`,
+  `cheque`, `fee`, `internal_out`. New deposits are entered as `transfer_in` with a note;
+  `deposit` stays valid only so existing rows keep their history.
 - An internal transfer is two linked rows sharing `transfer_group_id`; voiding one voids both.
 
 ## Secrets and environment

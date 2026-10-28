@@ -58,20 +58,20 @@ test("book and bank balances and every running balance are exact", { skip }, asy
       ])
       .returning();
 
-    const move = (type: "transfer_in" | "deposit" | "fee", date: string, amountMinor: number) =>
+    const move = (type: "transfer_in" | "transfer_out" | "fee", date: string, amountMinor: number) =>
       m.createMovement(
         user,
-        type === "transfer_in"
+        type === "fee"
           ? { type, bankAccountId: a.id, transactionDate: date, amountMinor,
-              partyName: "P", reference: date, notes: null }
+              description: "D", notes: null }
           : { type, bankAccountId: a.id, transactionDate: date, amountMinor,
-              description: "D", notes: null },
+              partyName: "P", reference: date, notes: null },
         {},
         tx,
       );
     await move("transfer_in", "2026-01-05", 50000); //   +500.00
     await move("fee", "2026-01-06", 2550); //            -25.50
-    const deposit = await move("deposit", "2026-01-07", 100000); // voided below
+    const voided = await move("transfer_out", "2026-01-07", 100000); // voided below
     await m.createInternalTransfer(
       user,
       { fromAccountId: a.id, toAccountId: b.id, transactionDate: "2026-01-08",
@@ -79,9 +79,9 @@ test("book and bank balances and every running balance are exact", { skip }, asy
       tx,
     ); //                                                 -200.00 on A, +200.00 on B
     await move("transfer_in", "2026-01-09", 1); //        +0.01
-    assert.equal(deposit.status, "created");
-    if (deposit.status === "created") {
-      await m.voidTransaction(user, { transactionId: deposit.ids[0], reason: "test" }, tx);
+    assert.equal(voided.status, "created");
+    if (voided.status === "created") {
+      await m.voidTransaction(user, { transactionId: voided.ids[0], reason: "test" }, tx);
     }
 
     // Cheques (written directly until M3): issued counts in book only,
@@ -117,7 +117,7 @@ test("book and bank balances and every running balance are exact", { skip }, asy
         ["2026-01-10", "cheque", "issued", 97451],
         ["2026-01-09", "transfer_in", "active", 127451],
         ["2026-01-08", "internal_out", "active", 127450],
-        ["2026-01-07", "deposit", "voided", 147450],
+        ["2026-01-07", "transfer_out", "voided", 147450],
         ["2026-01-06", "fee", "active", 147450],
         ["2026-01-05", "transfer_in", "active", 150000],
       ],
@@ -136,7 +136,7 @@ test("book and bank balances and every running balance are exact", { skip }, asy
     ]);
     assert.deepEqual(await filtered({ status: "void" }), [
       ["cheque", 87451],
-      ["deposit", 147450],
+      ["transfer_out", 147450],
     ]);
     assert.deepEqual(await filtered({ q: "50%" }), []); // wildcards are escaped
   });
@@ -356,5 +356,40 @@ test("recent movements: newest first, views filter, voided rows hidden", { skip 
     assert.equal((await list("all", 2)).length, 2);
     // Another organization sees nothing.
     assert.deepEqual(await m.listRecentMovements(crypto.randomUUID(), "all", 8, tx), []);
+  });
+});
+
+test("outgoing transfer: money out of book and bank, duplicate warning, any account", { skip }, async () => {
+  const m = await load();
+  await inRollback(async (tx) => {
+    const orgId = crypto.randomUUID();
+    const user = { id: ADMIN_ID, organizationId: orgId };
+    await tx.insert(m.organizations).values({ id: orgId, name: "Contract test" });
+    // An account that does not receive transfers can still send one.
+    const [a] = await tx
+      .insert(m.bankAccounts)
+      .values({ organizationId: orgId, name: "A", bankName: "T", accountNumber: "1",
+        openingBalanceMinor: 100000, openingDate: "2026-01-01", receivesTransfers: false })
+      .returning();
+    const out = { type: "transfer_out" as const, bankAccountId: a.id, transactionDate: "2026-01-02",
+      amountMinor: 25050, partyName: "Supplier", reference: "OUT1", notes: null };
+
+    assert.equal((await m.createMovement(user, out, {}, tx)).status, "created");
+    assert.equal((await m.createMovement(user, out, {}, tx)).status, "duplicate");
+    // Same details in the other direction is not a duplicate.
+    const sameIn = { ...out, type: "transfer_in" as const };
+    assert.equal(
+      await m.createMovement(user, sameIn, {}, tx).catch((e) => e.code),
+      "accountNoTransfers",
+    );
+
+    const [bal] = await m.getAccountBalances(orgId, tx);
+    assert.equal(bal.bookBalanceMinor, 74950); // 1000.00 - 250.50
+    assert.equal(bal.bankBalanceMinor, 74950); // not a cheque: leaves the bank at once
+    const recent = await m.listRecentMovements(orgId, "out", 8, tx);
+    assert.deepEqual(recent.map((r) => [r.type, r.signedAmountMinor, r.partyName]), [
+      ["transfer_out", -25050, "Supplier"],
+    ]);
+    assert.deepEqual(await m.listRecentMovements(orgId, "in", 8, tx), []);
   });
 });

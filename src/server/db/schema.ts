@@ -31,9 +31,12 @@ const updatedAt = () =>
 
 export const ROLES = ["admin", "accountant", "viewer"] as const;
 export const LANGUAGES = ["ar", "en"] as const;
+// "deposit" is no longer offered when entering movements (record it as transfer_in with
+// a note), but stays valid so existing deposit rows keep their history.
 export const CREDIT_TYPES = ["transfer_in", "deposit", "internal_in"] as const;
-export const DEBIT_TYPES = ["cheque", "fee", "internal_out"] as const;
+export const DEBIT_TYPES = ["transfer_out", "cheque", "fee", "internal_out"] as const;
 export const TRANSACTION_TYPES = [...CREDIT_TYPES, ...DEBIT_TYPES] as const;
+export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 export const MOVEMENT_STATUSES = ["active", "voided"] as const;
 export const CHEQUE_STATUSES = ["issued", "cleared", "cancelled"] as const;
 
@@ -136,7 +139,7 @@ export const transactions = pgTable(
   (t) => [
     check(
       "transactions_type_check",
-      sql`${t.type} in ('transfer_in', 'deposit', 'internal_in', 'cheque', 'fee', 'internal_out')`,
+      sql`${t.type} in ('transfer_in', 'deposit', 'internal_in', 'transfer_out', 'cheque', 'fee', 'internal_out')`,
     ),
     check("transactions_amount_positive", sql`${t.amountMinor} > 0`),
     // Cheques must have a number; only cheques have one.

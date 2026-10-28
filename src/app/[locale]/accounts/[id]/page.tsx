@@ -13,8 +13,8 @@ import { hasRole } from "@/server/auth/roles";
 import { getCurrentUser } from "@/server/auth/session";
 import { getAccountBalances } from "@/server/ledger/balances";
 import { getAccountLedger, type LedgerRow } from "@/server/ledger/ledger";
+import type { TransactionType } from "@/server/db/schema";
 
-type RowType = "transfer_in" | "deposit" | "fee" | "internal_in" | "internal_out" | "cheque";
 
 export default async function AccountLedgerPage({
   params,
@@ -147,7 +147,7 @@ export default async function AccountLedgerPage({
                   {day(r.transactionDate)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2">
-                  {t(`types.${r.type as RowType}`)}
+                  {t(`types.${r.type as TransactionType}`)}
                   {isVoid(r) && (
                     <span className="ms-2 rounded bg-debit-tint px-1.5 py-0.5 text-xs text-debit">
                       {t("voided")}

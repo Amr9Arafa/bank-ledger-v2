@@ -33,13 +33,15 @@ const optionalText = (max: number) =>
 const notes = optionalText(1000);
 
 // The tabs of the new movement form. "internal" saves an internal_out + internal_in pair.
-export const FORM_TYPES = ["transfer_in", "deposit", "fee", "internal"] as const;
+// Deposits are entered as incoming transfers (with a note), so they have no tab.
+export const FORM_TYPES = ["transfer_in", "transfer_out", "fee", "internal"] as const;
 export type FormType = (typeof FORM_TYPES)[number];
 
-// Transfer in, deposit and fee share one form; fields differ by type.
+// Transfers in/out and fees share one form; fields differ by type.
 export const movementSchema = z.discriminatedUnion("type", [
   z.object({
-    type: z.literal("transfer_in"),
+    // partyName: the sender for an incoming transfer, the beneficiary for an outgoing one.
+    type: z.enum(["transfer_in", "transfer_out"]),
     bankAccountId: accountId,
     transactionDate: day,
     amountMinor: amount,
@@ -48,7 +50,7 @@ export const movementSchema = z.discriminatedUnion("type", [
     notes,
   }),
   z.object({
-    type: z.enum(["deposit", "fee"]),
+    type: z.literal("fee"),
     bankAccountId: accountId,
     transactionDate: day,
     amountMinor: amount,
@@ -148,7 +150,7 @@ export const roleChangeSchema = z.object({
 });
 
 // FR-11: ledger filters from the URL. Bad values are ignored rather than rejected.
-export const LEDGER_TYPES = ["transfer_in", "deposit", "fee", "internal", "cheque"] as const;
+export const LEDGER_TYPES = ["transfer_in", "transfer_out", "fee", "internal", "cheque"] as const;
 // counted: in the book balance; outstanding: issued cheques; void: voided or cancelled.
 export const LEDGER_STATUSES = ["counted", "outstanding", "void"] as const;
 
