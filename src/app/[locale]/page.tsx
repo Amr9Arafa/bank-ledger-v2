@@ -96,7 +96,6 @@ export default async function DashboardPage({ params, searchParams }: PageProps<
             items={[
               { href: "/transactions/new?type=transfer_in", label: t("newTransfer") },
               { href: "/cheques/new", label: t("newCheque") },
-              { href: "/transactions/new", label: t("newMovement") },
             ]}
           />
         )}
