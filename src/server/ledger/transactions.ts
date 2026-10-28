@@ -214,3 +214,20 @@ export async function voidTransaction(
     return { voidedIds: after.map((r) => r.id) };
   });
 }
+
+// Names already used as sender, beneficiary or payee, most recently used first.
+// Stands in for a counterparties table until one exists.
+export async function listCounterparties(
+  organizationId: string,
+  limit = 200,
+  database: Executor = db,
+): Promise<string[]> {
+  const rows = await database.execute<{ party_name: string }>(sql`
+    select party_name from transactions
+    where organization_id = ${organizationId} and party_name is not null
+    group by party_name
+    order by max(created_at) desc
+    limit ${limit}
+  `);
+  return rows.map((r) => r.party_name);
+}
