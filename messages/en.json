@@ -68,7 +68,8 @@
     "main": "Main",
     "accounts": "Accounts",
     "menu": "Menu",
-    "closeMenu": "Close"
+    "closeMenu": "Close",
+    "inbox": "AI Inbox"
   },
   "movement": {
     "title": "New movement",
@@ -138,7 +139,9 @@
     "unexpected": "Something went wrong. Please try again.",
     "openingAfterTransactions": "There are movements before this date. Choose an earlier opening date.",
     "invalidAccountNumber": "Account numbers may contain only digits, Latin letters, spaces and dashes.",
-    "hasOutstandingCheques": "An account with outstanding cheques cannot be archived. Clear or cancel them first."
+    "hasOutstandingCheques": "An account with outstanding cheques cannot be archived. Clear or cancel them first.",
+    "entryNotFound": "This inbox entry was not found.",
+    "entryNotPending": "This entry was already approved or rejected."
   },
   "ledger": {
     "types": {
@@ -310,5 +313,62 @@
     "confirmArchive": "Confirm archive",
     "confirmUnarchive": "Confirm",
     "archiveNote": "The history stays, but the account leaves the entry forms and the dashboard."
+  },
+  "inbox": {
+    "title": "AI Inbox",
+    "description": "Messages and cheque photos read by AI. Check each one, correct it if needed, then approve or reject. Nothing counts in a balance until it is approved.",
+    "tabs": {
+      "pending": "To review",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "empty": {
+      "pending": "Nothing to review.",
+      "approved": "No approved entries yet.",
+      "rejected": "No rejected entries."
+    },
+    "kinds": {
+      "transaction": "Transfer",
+      "cheque": "Cheque"
+    },
+    "sources": {
+      "web": "Web",
+      "telegram": "Telegram"
+    },
+    "original": "Original message",
+    "extracted": "What AI read",
+    "photoAlt": "Photo sent to the inbox",
+    "photoUnavailable": "The photo could not be loaded. Refresh the page to try again.",
+    "photoDeleted": "The photo was deleted when the entry was rejected.",
+    "selectDirection": "In or out?",
+    "approve": "Approve",
+    "approving": "Approving…",
+    "approveAnyway": "Approve anyway",
+    "duplicateWarning": "A transfer with the same account, amount, date and reference already exists. Check the details, then press Approve again to save it anyway.",
+    "reject": "Reject",
+    "confirmReject": "Confirm reject",
+    "rejectNote": "Nothing is saved to the ledger. A photo is deleted.",
+    "approvedBy": "Approved by {name} · {when}",
+    "rejectedBy": "Rejected by {name} · {when}",
+    "party": "Party",
+    "viewInLedger": "View in the account ledger",
+    "warnings": {
+      "directionMissing": "Not clear whether money came in or went out.",
+      "amountMissing": "No amount found.",
+      "amountInvalid": "The amount “{value}” is not a valid positive amount.",
+      "accountUnresolved": "Not clear which of our accounts this is. Choose one.",
+      "accountNoTransfers": "This account does not receive transfers.",
+      "accountNoCheques": "This account does not issue cheques.",
+      "counterpartyMissing": "No sender, beneficiary or payee found.",
+      "counterpartyNew": "“{value}” is a new name. Check the spelling, or keep it to add a new name.",
+      "dateMissing": "No date found: today’s date is filled in.",
+      "dateInvalid": "The date “{value}” is not a real date.",
+      "dateInFuture": "The date {value} is in the future.",
+      "dateFarFuture": "The date {value} is more than a year ahead.",
+      "dateFarPast": "The date {value} is more than 6 months ago.",
+      "chequeNumberMissing": "No cheque number found.",
+      "amountWordsMissing": "Could not read the amount in words to double-check the digits.",
+      "amountWordsMismatch": "The amount in words (“{value}”) does not match the digits."
+    }
   }
 }

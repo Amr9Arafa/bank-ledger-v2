@@ -2,7 +2,7 @@
 // The model's answer is a suggestion for a person to review: checks add warnings, never fail.
 import { z } from "zod";
 import { addDays } from "./cheques.ts";
-import { toMinor } from "./money.ts";
+import { minorToDecimal, toMinor } from "./money.ts";
 
 // Sent to the API as a JSON schema (structured outputs): the response always matches it.
 // Descriptions are part of the schema, so they double as per-field instructions.
@@ -178,3 +178,59 @@ export function normalizeName(name: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// Starting values for the review form, with the same field names as the manual forms.
+// A cheque's written date is its due date when it is in the future (post-dated);
+// otherwise it is the issue date. Anything unknown is left empty for the reviewer.
+export function reviewDefaults(
+  extraction: Extraction,
+  resolved: ResolvedExtraction,
+  today: string,
+): Record<string, string> {
+  const common = {
+    bankAccountId: resolved.accountId ?? "",
+    amountMinor: resolved.amountMinor === null ? "" : minorToDecimal(resolved.amountMinor),
+    partyName: resolved.counterparty ?? "",
+    notes: extraction.notes ?? "",
+  };
+  if (extraction.kind === "cheque") {
+    const postDated = resolved.date !== null && resolved.date > today;
+    return {
+      ...common,
+      chequeNumber: extraction.cheque_number ?? "",
+      transactionDate: postDated ? today : (resolved.date ?? today),
+      dueDate: postDated ? (resolved.date ?? "") : "",
+    };
+  }
+  return {
+    ...common,
+    type:
+      extraction.direction === "in"
+        ? "transfer_in"
+        : extraction.direction === "out"
+          ? "transfer_out"
+          : "",
+    transactionDate: resolved.date ?? today,
+    reference: "",
+  };
+}
+
+// Which review form field each warning is about, so the form can highlight it.
+export const WARNING_FIELDS: Record<ExtractionWarningCode, string[]> = {
+  directionMissing: ["type"],
+  amountMissing: ["amountMinor"],
+  amountInvalid: ["amountMinor"],
+  amountWordsMissing: ["amountMinor"],
+  amountWordsMismatch: ["amountMinor"],
+  accountUnresolved: ["bankAccountId"],
+  accountNoTransfers: ["bankAccountId"],
+  accountNoCheques: ["bankAccountId"],
+  counterpartyMissing: ["partyName"],
+  counterpartyNew: ["partyName"],
+  dateMissing: ["transactionDate"],
+  dateInvalid: ["transactionDate"],
+  dateInFuture: ["transactionDate"],
+  dateFarFuture: ["transactionDate", "dueDate"],
+  dateFarPast: ["transactionDate"],
+  chequeNumberMissing: ["chequeNumber"],
+};

@@ -123,3 +123,31 @@ test("normalizeName ignores case, spacing, harakat and Arabic letter variants", 
   assert.equal(normalizeName("مكتبة الهُدى"), normalizeName("مكتبه الهدي"));
   assert.equal(normalizeName("AL NOUR"), "al nour");
 });
+
+test("reviewDefaults: transfer fields, empty when unknown", async () => {
+  const { reviewDefaults } = await import("./extraction.ts");
+  const { resolved } = checkExtraction(transfer, context);
+  assert.deepEqual(reviewDefaults(transfer, resolved, context.today), {
+    type: "transfer_in", bankAccountId: CIB, amountMinor: "15000.00",
+    partyName: "شركة النور للتوريدات", notes: "", transactionDate: "2026-10-28", reference: "",
+  });
+  const unknown = { ...transfer, direction: null, account_id: null, amount: null, date: null };
+  const d = reviewDefaults(unknown, checkExtraction(unknown, context).resolved, context.today);
+  assert.equal(d.type, "");
+  assert.equal(d.bankAccountId, "");
+  assert.equal(d.amountMinor, "");
+  assert.equal(d.transactionDate, "2026-10-29");
+});
+
+test("reviewDefaults: a post-dated cheque is issued today and due on its date", async () => {
+  const { reviewDefaults } = await import("./extraction.ts");
+  const later = { ...cheque, date: "2026-11-15" };
+  const d = reviewDefaults(later, checkExtraction(later, context).resolved, context.today);
+  assert.equal(d.transactionDate, "2026-10-29");
+  assert.equal(d.dueDate, "2026-11-15");
+  assert.equal(d.chequeNumber, "000123");
+  assert.equal(d.amountMinor, "1250.50");
+  const d2 = reviewDefaults(cheque, checkExtraction(cheque, context).resolved, context.today);
+  assert.equal(d2.transactionDate, "2026-10-28");
+  assert.equal(d2.dueDate, "");
+});

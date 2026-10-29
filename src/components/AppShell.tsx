@@ -10,6 +10,7 @@ import { formatAmount } from "@/lib/money";
 import { hasRole } from "@/server/auth/roles";
 import { getSessionUser } from "@/server/auth/session";
 import { getAccountBalancesForRequest } from "@/server/ledger/cached";
+import { countPendingEntries } from "@/server/ledger/pendingEntries";
 
 // The app frame. Signed in: a start-side sidebar on large screens, a top bar with a menu
 // button below that. Signed out (login page): just the title and the language switch.
@@ -38,6 +39,9 @@ export default async function AppShell({ children }: { children: ReactNode }) {
   }
 
   const accounts = await getAccountBalancesForRequest(user.organizationId);
+  // The AI Inbox is for those who may enter movements; its hint is the number waiting.
+  const canWrite = hasRole(user, "accountant");
+  const pending = canWrite ? await countPendingEntries(user.organizationId) : 0;
   const initials = user.name
     .split(/\s+/)
     .slice(0, 2)
@@ -52,6 +56,15 @@ export default async function AppShell({ children }: { children: ReactNode }) {
             items={[
               { href: "/", label: t("home") },
               { href: "/cheques", label: t("cheques") },
+              ...(canWrite
+                ? [
+                    {
+                      href: "/inbox",
+                      label: t("inbox"),
+                      hint: pending > 0 ? pending.toLocaleString(locale === "ar" ? "ar-EG" : "en-GB") : undefined,
+                    },
+                  ]
+                : []),
               ...(hasRole(user, "admin") ? [{ href: "/settings", label: t("settings") }] : []),
             ]}
           />

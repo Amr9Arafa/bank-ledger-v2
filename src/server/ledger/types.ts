@@ -19,7 +19,9 @@ export type LedgerErrorCode =
   | "emailTaken"
   | "secretKeyMissing"
   | "openingAfterTransactions"
-  | "hasOutstandingCheques";
+  | "hasOutstandingCheques"
+  | "entryNotFound"
+  | "entryNotPending";
 
 // A business rule was broken. Thrown inside the DB transaction, so nothing is saved.
 export class LedgerError extends Error {

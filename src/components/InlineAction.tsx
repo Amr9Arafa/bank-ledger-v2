@@ -10,6 +10,7 @@ import { useFieldHelpers } from "@/components/form";
 export default function InlineAction({
   action,
   transactionId,
+  idName = "transactionId",
   label,
   confirmLabel,
   keepLabel,
@@ -19,6 +20,8 @@ export default function InlineAction({
 }: {
   action: (state: InlineActionState, formData: FormData) => Promise<InlineActionState>;
   transactionId: string;
+  // Name of the hidden id field, for actions on something other than a transaction.
+  idName?: string;
   label: string;
   confirmLabel: string;
   keepLabel: string;
@@ -48,7 +51,7 @@ export default function InlineAction({
   const inputId = input ? `${input.name}-${transactionId}` : undefined;
   return (
     <form action={formAction} className="flex min-w-56 flex-col gap-2 text-sm">
-      <input type="hidden" name="transactionId" value={transactionId} />
+      <input type="hidden" name={idName} value={transactionId} />
       {input && (
         <>
           <label className="sr-only" htmlFor={inputId}>
