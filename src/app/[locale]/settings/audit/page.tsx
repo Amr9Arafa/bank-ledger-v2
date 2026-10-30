@@ -3,19 +3,26 @@ import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { formatEGP } from "@/lib/money";
 import { getUserWithRole } from "@/server/auth/session";
-import { listAudit } from "@/server/ledger/audit";
+import { type AuditAction, listAudit } from "@/server/ledger/audit";
 import type { TransactionType } from "@/server/db/schema";
-
-type Action = "create" | "void" | "clear" | "cancel" | "unclear" | "update" | "archive" | "unarchive";
 
 export default async function AuditPage({ params }: PageProps<"/[locale]/settings/audit">) {
   const locale = (await params).locale as Locale;
   setRequestLocale(locale);
   const t = await getTranslations("settings");
   const tl = await getTranslations("ledger");
+  const tn = await getTranslations("nav");
 
   const admin = await getUserWithRole("admin");
   const rows = await listAudit(admin.organizationId);
+
+  // A permission change's old or new value: a role name, a Telegram id, or "none".
+  const userValue = (action: string, value: string | null) =>
+    value === null
+      ? t("auditNone")
+      : action === "role"
+        ? tn(`roles.${value as "admin" | "accountant" | "viewer"}`)
+        : value;
 
   // Date and time of each change, in Cairo.
   const when = new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-GB", {
@@ -49,9 +56,18 @@ export default async function AuditPage({ params }: PageProps<"/[locale]/setting
                 <td className="px-3 py-2">
                   <bdi>{r.userName}</bdi>
                 </td>
-                <td className="whitespace-nowrap px-3 py-2">{t(`actions.${r.action as Action}`)}</td>
+                <td className="whitespace-nowrap px-3 py-2">{t(`actions.${r.action as AuditAction}`)}</td>
                 <td className="px-3 py-2">
-                  {r.transactionType ? (
+                  {r.targetUserName ? (
+                    <>
+                      <bdi>{r.targetUserName}</bdi>
+                      {": "}
+                      <bdi dir="auto">{userValue(r.action, r.beforeValue)}</bdi>
+                      {/* Arrows are not mirrored in right-to-left text: pick the one that points from old to new. */}
+                      {locale === "ar" ? " ← " : " → "}
+                      <bdi dir="auto">{userValue(r.action, r.afterValue)}</bdi>
+                    </>
+                  ) : r.transactionType ? (
                     <>
                       {tl(`types.${r.transactionType as TransactionType}`)}
                       {r.chequeNumber && <> #<bdi>{r.chequeNumber}</bdi></>}

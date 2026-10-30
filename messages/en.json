@@ -141,7 +141,9 @@
     "invalidAccountNumber": "Account numbers may contain only digits, Latin letters, spaces and dashes.",
     "hasOutstandingCheques": "An account with outstanding cheques cannot be archived. Clear or cancel them first.",
     "entryNotFound": "This inbox entry was not found.",
-    "entryNotPending": "This entry was already approved or rejected."
+    "entryNotPending": "This entry was already approved or rejected.",
+    "invalidTelegramId": "A Telegram ID is digits only.",
+    "telegramIdTaken": "This Telegram ID is already linked to another user."
   },
   "ledger": {
     "types": {
@@ -249,8 +251,14 @@
       "unclear": "Clear undone",
       "update": "Edited",
       "archive": "Archived",
-      "unarchive": "Unarchived"
-    }
+      "unarchive": "Unarchived",
+      "role": "Role changed",
+      "telegram": "Telegram link changed"
+    },
+    "telegramId": "Telegram ID",
+    "telegramIdPlaceholder": "Not linked",
+    "telegramSaved": "Saved.",
+    "auditNone": "none"
   },
   "filters": {
     "from": "From",

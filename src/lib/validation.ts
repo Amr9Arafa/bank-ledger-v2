@@ -149,6 +149,16 @@ export const roleChangeSchema = z.object({
   role: z.enum(["admin", "accountant", "viewer"], { message: "invalidRole" }),
 });
 
+// Links a user to their Telegram account (numeric user id). Empty unlinks: null.
+export const telegramLinkSchema = z.object({
+  userId: z.uuid({ message: "invalidUser" }),
+  telegramUserId: z
+    .string({ error: "required" })
+    .trim()
+    .regex(/^(\d{1,20})?$/, "invalidTelegramId")
+    .transform((id) => id || null),
+});
+
 // FR-11: ledger filters from the URL. Bad values are ignored rather than rejected.
 export const LEDGER_TYPES = ["transfer_in", "transfer_out", "fee", "internal", "cheque"] as const;
 // counted: in the book balance; outstanding: issued cheques; void: voided or cancelled.

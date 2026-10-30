@@ -29,6 +29,20 @@
       "when": 1793225370368,
       "tag": "0003_inbox_images_bucket",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793387266945,
+      "tag": "0004_telegram_user_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793387688052,
+      "tag": "0005_audit_target_user",
+      "breakpoints": true
     }
   ]
 }

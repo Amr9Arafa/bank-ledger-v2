@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { changeRoleAction } from "@/actions/admin";
 import NewUserForm from "@/components/NewUserForm";
+import TelegramIdForm from "@/components/TelegramIdForm";
 import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { getUserWithRole } from "@/server/auth/session";
@@ -38,6 +39,7 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/sett
                 <th className="px-3 py-2 text-start font-medium">{t("name")}</th>
                 <th className="px-3 py-2 text-start font-medium">{t("email")}</th>
                 <th className="px-3 py-2 text-start font-medium">{t("role")}</th>
+                <th className="px-3 py-2 text-start font-medium">{t("telegramId")}</th>
               </tr>
             </thead>
             <tbody>
@@ -73,6 +75,9 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/sett
                         </button>
                       </form>
                     )}
+                  </td>
+                  <td className="px-3 py-2">
+                    <TelegramIdForm userId={p.id} telegramUserId={p.telegramUserId} />
                   </td>
                 </tr>
               ))}

@@ -16,6 +16,7 @@ export type LedgerErrorCode =
   | "clearedBeforeIssue"
   | "cannotChangeOwnRole"
   | "userNotFound"
+  | "telegramIdTaken"
   | "emailTaken"
   | "secretKeyMissing"
   | "openingAfterTransactions"

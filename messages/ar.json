@@ -141,7 +141,9 @@
     "invalidAccountNumber": "رقم الحساب يقبل الأرقام والحروف اللاتينية والمسافات والشرطة فقط.",
     "hasOutstandingCheques": "لا يمكن أرشفة حساب عليه شيكات لم تُصرف. اصرفها أو ألغها أولًا.",
     "entryNotFound": "هذا الإدخال غير موجود.",
-    "entryNotPending": "تمت الموافقة على هذا الإدخال أو رفضه بالفعل."
+    "entryNotPending": "تمت الموافقة على هذا الإدخال أو رفضه بالفعل.",
+    "invalidTelegramId": "معرّف تيليجرام أرقام فقط.",
+    "telegramIdTaken": "معرّف تيليجرام هذا مرتبط بمستخدم آخر."
   },
   "ledger": {
     "types": {
@@ -249,8 +251,14 @@
       "unclear": "تراجع عن صرف",
       "update": "تعديل",
       "archive": "أرشفة",
-      "unarchive": "إلغاء الأرشفة"
-    }
+      "unarchive": "إلغاء الأرشفة",
+      "role": "تغيير الدور",
+      "telegram": "تغيير ربط تيليجرام"
+    },
+    "telegramId": "معرّف تيليجرام",
+    "telegramIdPlaceholder": "غير مرتبط",
+    "telegramSaved": "تم الحفظ.",
+    "auditNone": "لا شيء"
   },
   "filters": {
     "from": "من تاريخ",

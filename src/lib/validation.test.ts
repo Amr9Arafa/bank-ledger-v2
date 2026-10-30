@@ -5,6 +5,7 @@ import {
   fieldErrors,
   internalTransferSchema,
   movementSchema,
+  telegramLinkSchema,
   voidSchema,
 } from "./validation.ts";
 
@@ -161,4 +162,14 @@ test("bank account: signed opening balance and checkboxes", async () => {
   assert.deepEqual(errorsOf(bankAccountSchema, { ...base, accountNumber: "12#4", openingBalanceMinor: "1" }), {
     accountNumber: "invalidAccountNumber",
   });
+});
+
+test("telegram link: digits, trimmed; empty unlinks; anything else is rejected", () => {
+  assert.equal(telegramLinkSchema.parse({ userId: A, telegramUserId: " 6689039609 " }).telegramUserId, "6689039609");
+  assert.equal(telegramLinkSchema.parse({ userId: A, telegramUserId: "" }).telegramUserId, null);
+  for (const bad of ["@amr", "-100123", "12 34", "1".repeat(21)]) {
+    assert.deepEqual(errorsOf(telegramLinkSchema, { userId: A, telegramUserId: bad }), {
+      telegramUserId: "invalidTelegramId",
+    });
+  }
 });

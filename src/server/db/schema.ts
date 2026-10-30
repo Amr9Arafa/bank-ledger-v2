@@ -63,11 +63,15 @@ export const users = pgTable(
     name: text("name").notNull(),
     role: text("role", { enum: ROLES }).notNull(),
     language: text("language", { enum: LANGUAGES }).notNull().default("ar"),
+    // Telegram user id (digits) linked by an admin; messages to the bot act as this user.
+    // Text, not bigint: only ever compared, and Postgres returns bigint as a string anyway.
+    telegramUserId: text("telegram_user_id").unique(),
     createdAt: createdAt(),
   },
   (t) => [
     check("users_role_check", sql`${t.role} in ('admin', 'accountant', 'viewer')`),
     check("users_language_check", sql`${t.language} in ('ar', 'en')`),
+    check("users_telegram_user_id_check", sql`${t.telegramUserId} ~ '^[0-9]+$'`),
   ],
 ).enableRLS();
 
@@ -188,7 +192,9 @@ export const auditLog = pgTable(
     // Exactly one of these is set: what was changed.
     transactionId: uuid("transaction_id").references(() => transactions.id),
     bankAccountId: uuid("bank_account_id").references(() => bankAccounts.id),
-    // e.g. "create", "update", "void", "clear", "cancel"
+    // The user whose permissions changed (role, Telegram link).
+    targetUserId: uuid("target_user_id").references(() => users.id),
+    // e.g. "create", "update", "void", "clear", "cancel", "role", "telegram"
     action: text("action").notNull(),
     before: jsonb("before"),
     after: jsonb("after"),
@@ -197,7 +203,7 @@ export const auditLog = pgTable(
   (t) => [
     check(
       "audit_log_one_target",
-      sql`num_nonnulls(${t.transactionId}, ${t.bankAccountId}) = 1`,
+      sql`num_nonnulls(${t.transactionId}, ${t.bankAccountId}, ${t.targetUserId}) = 1`,
     ),
     index("audit_log_transaction").on(t.transactionId),
   ],

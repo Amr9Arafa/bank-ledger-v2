@@ -7,16 +7,10 @@ import type {
   ChequeInput,
   ClearChequeInput,
 } from "../../lib/validation.ts";
-import { db, type Executor } from "../db/client.ts";
+import { db, type Executor, isUniqueViolation } from "../db/client.ts";
 import { bankAccounts, transactions } from "../db/schema.ts";
 import { writeAudit } from "./audit.ts";
 import { LedgerError, type LedgerUser } from "./types.ts";
-
-// Postgres unique violation (Drizzle wraps the driver error in `cause`).
-function isUniqueViolation(error: unknown): boolean {
-  const e = error as { code?: string; cause?: { code?: string } };
-  return e.code === "23505" || e.cause?.code === "23505";
-}
 
 export async function createCheque(
   user: LedgerUser,

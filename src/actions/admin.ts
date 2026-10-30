@@ -8,6 +8,7 @@ import {
   fieldErrors,
   newUserSchema,
   roleChangeSchema,
+  telegramLinkSchema,
   transactionIdSchema,
 } from "@/lib/validation";
 import { requireRole } from "@/server/auth/roles";
@@ -19,7 +20,7 @@ import {
   updateBankAccount,
 } from "@/server/ledger/bankAccounts";
 import { LedgerError } from "@/server/ledger/types";
-import { changeRole, createProfile } from "@/server/users";
+import { changeRole, createProfile, setTelegramUserId } from "@/server/users";
 import { asInlineAction, formValues, type InlineActionState } from "./form-data";
 
 export type NewUserState = {
@@ -78,6 +79,38 @@ export async function changeRoleAction(formData: FormData) {
     if (!(e instanceof LedgerError)) throw e;
   }
   revalidatePath("/[locale]/settings", "page");
+}
+
+export type TelegramLinkState = {
+  // Key under "errors" in messages/*.json.
+  error?: string;
+  // What was typed, so the input keeps it after an error.
+  value?: string;
+  saved?: boolean;
+};
+
+// Links a user to a Telegram account: the bot then accepts that account's messages as them.
+export async function setTelegramIdAction(
+  _previous: TelegramLinkState,
+  formData: FormData,
+): Promise<TelegramLinkState> {
+  const admin = await getCurrentUser();
+  requireRole(admin, "admin");
+
+  const values = formValues(formData);
+  const parsed = telegramLinkSchema.safeParse(values);
+  if (!parsed.success) {
+    return { value: values.telegramUserId, error: parsed.error.issues[0].message };
+  }
+  try {
+    await setTelegramUserId(admin, parsed.data.userId, parsed.data.telegramUserId);
+  } catch (error) {
+    if (error instanceof LedgerError) return { value: values.telegramUserId, error: error.code };
+    throw error;
+  }
+
+  revalidatePath("/[locale]/settings", "page");
+  return { value: parsed.data.telegramUserId ?? "", saved: true };
 }
 
 export type BankAccountFormState = {

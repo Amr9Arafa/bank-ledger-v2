@@ -15,6 +15,12 @@ export const db = drizzle(client, { schema });
 export type Database = typeof db;
 export type Executor = Database | Parameters<Parameters<Database["transaction"]>[0]>[0];
 
+// Postgres unique violation (Drizzle wraps the driver error in `cause`).
+export function isUniqueViolation(error: unknown): boolean {
+  const e = error as { code?: string; cause?: { code?: string } };
+  return e.code === "23505" || e.cause?.code === "23505";
+}
+
 // For scripts and tests: an open connection keeps the Node process alive.
 export async function closeDatabase() {
   await client.end();

@@ -3,11 +3,24 @@ import { db, type Executor } from "../db/client.ts";
 import { auditLog } from "../db/schema.ts";
 import type { LedgerUser } from "./types.ts";
 
+// "role" and "telegram": a user's permissions changed; before/after hold the old and new value.
+export type AuditAction =
+  | "create"
+  | "void"
+  | "clear"
+  | "cancel"
+  | "unclear"
+  | "update"
+  | "archive"
+  | "unarchive"
+  | "role"
+  | "telegram";
+
 type AuditEntry = {
-  action: "create" | "void" | "clear" | "cancel" | "unclear" | "update" | "archive" | "unarchive";
+  action: AuditAction;
   before: unknown;
   after: unknown;
-} & ({ transactionId: string } | { bankAccountId: string });
+} & ({ transactionId: string } | { bankAccountId: string } | { targetUserId: string });
 
 // Call inside the same DB transaction as the change it records.
 export async function writeAudit(tx: Executor, user: LedgerUser, entry: AuditEntry) {
@@ -31,9 +44,13 @@ export type AuditRow = {
   accountName: string | null;
   beforeStatus: string | null;
   afterStatus: string | null;
+  // Permission changes: whose, and the old and new role or Telegram id.
+  targetUserName: string | null;
+  beforeValue: string | null;
+  afterValue: string | null;
 };
 
-// Newest changes first: who did what to which movement or account.
+// Newest changes first: who did what to which movement, account or user.
 export async function listAudit(
   organizationId: string,
   limit = 200,
@@ -52,15 +69,22 @@ export async function listAudit(
     account_name: string | null;
     before_status: string | null;
     after_status: string | null;
+    target_user_name: string | null;
+    before_value: string | null;
+    after_value: string | null;
   }>(sql`
     select
       l.id, l.action, l.created_at::text, u.name as user_name,
       t.type as transaction_type, t.amount_minor, t.cheque_number,
       coalesce(t.party_name, t.description) as party_name,
       ba.id as account_id, ba.name as account_name,
-      l.before ->> 'status' as before_status, l.after ->> 'status' as after_status
+      l.before ->> 'status' as before_status, l.after ->> 'status' as after_status,
+      tu.name as target_user_name,
+      coalesce(l.before ->> 'role', l.before ->> 'telegramUserId') as before_value,
+      coalesce(l.after ->> 'role', l.after ->> 'telegramUserId') as after_value
     from audit_log l
     join users u on u.id = l.user_id
+    left join users tu on tu.id = l.target_user_id
     left join transactions t on t.id = l.transaction_id
     left join bank_accounts ba on ba.id = coalesce(t.bank_account_id, l.bank_account_id)
     where l.organization_id = ${organizationId}
@@ -80,5 +104,8 @@ export async function listAudit(
     accountName: r.account_name,
     beforeStatus: r.before_status,
     afterStatus: r.after_status,
+    targetUserName: r.target_user_name,
+    beforeValue: r.before_value,
+    afterValue: r.after_value,
   }));
 }
