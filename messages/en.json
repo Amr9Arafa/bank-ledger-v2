@@ -400,7 +400,25 @@
       "aiUnavailable": "The AI service didn't respond. Nothing was saved and your message is still here: please try again in a minute.",
       "aiUnreadable": "The AI couldn't read this. Write it more clearly, or take a sharper photo, and try again.",
       "aiFailed": "The AI service is not set up correctly, so trying again won't help. Please tell an admin.",
-      "uploadFailed": "The photo couldn't be saved. Nothing was saved: please try again."
+      "uploadFailed": "The photo couldn't be saved. Nothing was saved: please try again.",
+      "nothingFound": "No amount and no direction (money in or out) found. Nothing was saved: write the amount and whether money came in or went out."
     }
+  },
+  "telegram": {
+    "help": "Send me a message about a bank transfer or a cheque we issued, or a photo of a cheque. I will read it and put it in the AI Inbox, where it waits for approval before it counts in any balance.",
+    "saved": "Added to the AI Inbox. It is waiting for approval.",
+    "directionUnknown": "Transfer (direction unclear)",
+    "amount": "Amount",
+    "account": "Account",
+    "counterparty": "Name",
+    "date": "Date",
+    "chequeNumber": "Cheque number",
+    "none": "—",
+    "check": "Please check:",
+    "review": "Review it here: {url}",
+    "notAllowed": "Your account can only view. Ask an admin for the accountant role to send entries.",
+    "unsupported": "I can read text messages and photos only.",
+    "downloadFailed": "Could not get the photo from Telegram. Nothing was saved: please send it again.",
+    "failed": "Something went wrong. Nothing was saved: please try again later."
   }
 }

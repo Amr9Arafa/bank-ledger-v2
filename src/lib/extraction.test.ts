@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkExtraction, type Extraction, normalizeName } from "./extraction.ts";
+import { checkExtraction, type Extraction, foundNothing, normalizeName } from "./extraction.ts";
 
 const CIB = "11111111-1111-4111-8111-111111111111";
 const NBE = "22222222-2222-4222-8222-222222222222";
@@ -150,4 +150,12 @@ test("reviewDefaults: a post-dated cheque is issued today and due on its date", 
   const d2 = reviewDefaults(cheque, checkExtraction(cheque, context).resolved, context.today);
   assert.equal(d2.transactionDate, "2026-10-28");
   assert.equal(d2.dueDate, "");
+});
+
+test("found nothing: only when both the amount and the direction are missing", () => {
+  assert.equal(foundNothing({ ...transfer, amount: null, direction: null }), true);
+  assert.equal(foundNothing({ ...transfer, amount: "  ", direction: null }), true);
+  assert.equal(foundNothing({ ...transfer, amount: null }), false);
+  assert.equal(foundNothing({ ...transfer, direction: null }), false);
+  assert.equal(foundNothing({ ...cheque, amount: null }), false);
 });

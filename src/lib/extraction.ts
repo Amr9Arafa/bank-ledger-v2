@@ -169,6 +169,13 @@ export function checkExtraction(
   };
 }
 
+// Neither an amount nor a direction: the input was not about a movement ("hh", a selfie).
+// Rejected rather than saved as an entry that is nothing but warnings.
+// Cheques always have a direction, so a cheque photo is never rejected here.
+export function foundNothing(extraction: Extraction): boolean {
+  return !extraction.amount?.trim() && !extraction.direction;
+}
+
 // Compares names the way people write them: case, spacing and common Arabic letter
 // variants (أ/إ/آ -> ا, ة -> ه, ى -> ي) do not make a different counterparty.
 export function normalizeName(name: string): string {

@@ -46,6 +46,24 @@ export async function createPendingEntry(
   return row;
 }
 
+// Whether a Telegram message already became an entry (Telegram may deliver it again).
+export async function pendingEntryExists(
+  organizationId: string,
+  externalMessageId: string,
+  database: Executor = db,
+) {
+  const [row] = await database
+    .select({ id: pendingEntries.id })
+    .from(pendingEntries)
+    .where(
+      and(
+        eq(pendingEntries.organizationId, organizationId),
+        eq(pendingEntries.externalMessageId, externalMessageId),
+      ),
+    );
+  return Boolean(row);
+}
+
 export type PendingEntryStatus = "pending" | "approved" | "rejected";
 
 const reviewer = alias(users, "reviewer");

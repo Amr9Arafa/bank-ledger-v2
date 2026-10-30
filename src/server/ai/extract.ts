@@ -10,6 +10,7 @@ import {
   type Extraction,
   extractionSchema,
   type ExtractionWarning,
+  foundNothing,
   MAX_TEXT_LENGTH,
   type ResolvedExtraction,
 } from "../../lib/extraction.ts";
@@ -42,6 +43,8 @@ export type ExtractionErrorCode =
   | "aiUnavailable"
   | "aiUnreadable"
   | "aiFailed"
+  // The model read it, but found no amount and no direction: not a movement.
+  | "nothingFound"
   // The photo could not be stored; retrying usually helps.
   | "uploadFailed";
 
@@ -223,6 +226,7 @@ export async function runExtraction(
   validateInput(input);
   const context = await loadContext(user, database);
   const extracted = await callModel(context, input);
+  if (foundNothing(extracted)) throw new ExtractionError("nothingFound");
   const { warnings, resolved } = checkExtraction(extracted, {
     ...context,
     hasImage: Boolean(input.image),
