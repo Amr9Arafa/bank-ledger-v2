@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { chequeSchema, fieldErrors, movementSchema } from "@/lib/validation";
 import { requireRole } from "@/server/auth/roles";
+import {
+  ExtractionError,
+  type ExtractionErrorCode,
+  extractToPendingEntry,
+} from "@/server/ai/extract";
 import { getCurrentUser } from "@/server/auth/session";
 import {
   type ApprovalInput,
@@ -24,6 +29,43 @@ export type ReviewFormState = {
 };
 
 const entryId = z.uuid({ message: "entryNotFound" });
+
+export type InboxSubmitState = {
+  // Key under "inbox.errors" in messages/*.json. Nothing was saved.
+  error?: ExtractionErrorCode;
+  // Kept on error, so a retry is one click.
+  text: string;
+  // Changes on every success, so the form knows to clear the photo.
+  createdId?: string;
+};
+
+// Text and/or a photo (already shrunk in the browser) -> AI -> a pending entry.
+export async function submitToInbox(
+  _previous: InboxSubmitState,
+  formData: FormData,
+): Promise<InboxSubmitState> {
+  const user = await getCurrentUser();
+  requireRole(user, "accountant");
+
+  const text = typeof formData.get("text") === "string" ? (formData.get("text") as string) : "";
+  const image = formData.get("image");
+  const file = image instanceof File && image.size > 0 ? image : null;
+
+  try {
+    const entry = await extractToPendingEntry(user, {
+      text,
+      image: file
+        ? { bytes: new Uint8Array(await file.arrayBuffer()), mediaType: file.type }
+        : undefined,
+      source: "web",
+    });
+    revalidatePath("/[locale]", "layout");
+    return { text: "", createdId: entry.id };
+  } catch (error) {
+    if (error instanceof ExtractionError) return { error: error.code, text };
+    throw error;
+  }
+}
 
 // Approve: the edited values go through the same validation as the manual forms, then the
 // ledger creates the record and marks the entry approved in one DB transaction.

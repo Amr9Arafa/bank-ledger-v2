@@ -2,7 +2,7 @@
 // It never creates a transaction or cheque: only approving the entry does (a person, later).
 // Shared by the web form and, later, the Telegram webhook.
 import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { todayInCairo } from "../../lib/dates.ts";
 import {
@@ -10,8 +10,10 @@ import {
   type Extraction,
   extractionSchema,
   type ExtractionWarning,
+  MAX_TEXT_LENGTH,
   type ResolvedExtraction,
 } from "../../lib/extraction.ts";
+import { MAX_IMAGE_BYTES } from "../../lib/image.ts";
 import { db, type Executor } from "../db/client.ts";
 import { bankAccounts } from "../db/schema.ts";
 import { createPendingEntry } from "../ledger/pendingEntries.ts";
@@ -19,9 +21,6 @@ import { listCounterparties } from "../ledger/transactions.ts";
 import type { LedgerUser } from "../ledger/types.ts";
 import { deleteInboxImage, uploadInboxImage } from "../storage.ts";
 
-export const MAX_TEXT_LENGTH = 2000;
-// Safety net: the browser shrinks photos to well under this before upload.
-export const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const IMAGE_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as const;
 type ImageType = keyof typeof IMAGE_TYPES;
 
@@ -42,7 +41,9 @@ export type ExtractionErrorCode =
   | "imageUnsupported"
   | "aiUnavailable"
   | "aiUnreadable"
-  | "aiFailed";
+  | "aiFailed"
+  // The photo could not be stored; retrying usually helps.
+  | "uploadFailed";
 
 export class ExtractionError extends Error {
   code: ExtractionErrorCode;
@@ -76,7 +77,10 @@ function anthropic() {
   return client;
 }
 
-const model = () => process.env.EXTRACTION_MODEL || "claude-haiku-5-5";
+// Model split: Haiku reads typed messages well and cheaply; handwriting on cheque photos
+// needs a stronger model (Haiku missed the amount, date and payee on a real cheque).
+export const textModel = () => process.env.EXTRACTION_MODEL || "claude-haiku-5-5";
+export const visionModel = () => process.env.VISION_MODEL || "claude-sonnet-5-5";
 
 function weekday(day: string) {
   return new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" }).format(
@@ -141,7 +145,7 @@ function validateInput(input: ExtractionInput) {
 }
 
 async function callModel(context: Context, input: ExtractionInput): Promise<Extraction> {
-  const content: Anthropic.ContentBlockParam[] = [];
+  const content: Anthropic.Beta.BetaContentBlockParam[] = [];
   if (input.image) {
     content.push({
       type: "image",
@@ -154,18 +158,31 @@ async function callModel(context: Context, input: ExtractionInput): Promise<Extr
   }
   content.push({ type: "text", text: buildUserText(context, input.text) });
 
+  const model = input.image ? visionModel() : textModel();
+  // If the model's safety filters decline the request, the API retries it on another model
+  // (server-side fallback; on Sonnet 5.5 it covers "cyber" and "frontier_llm" declines).
+  // Haiku 5.5 has no fallback and rejects a fallback list, so it gets none.
+  const fallback = model.startsWith("claude-haiku")
+    ? {}
+    : { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const };
+
   try {
     // parse(): the API constrains the answer to the schema, and the SDK validates it with Zod.
-    const response = await anthropic().messages.parse({
-      model: model(),
+    // The beta endpoint, because the fallback is a beta feature.
+    const response = await anthropic().beta.messages.parse({
+      model,
       max_tokens: 16000,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content }],
-      output_config: { format: zodOutputFormat(extractionSchema) },
+      output_config: { format: betaZodOutputFormat(extractionSchema) },
+      ...fallback,
     });
-    // A refusal or a cut-off answer has no usable output.
+    // A decline (also after any fallback) or a cut-off answer has no usable output.
     if (response.stop_reason !== "end_turn" || !response.parsed_output) {
-      console.error("AI extraction: no usable output, stop_reason", response.stop_reason);
+      console.error(
+        `AI extraction (${model}): no usable output, stop_reason ${response.stop_reason}`,
+        response.stop_details?.category ?? "",
+      );
       throw new ExtractionError("aiUnreadable");
     }
     return response.parsed_output;
@@ -226,7 +243,12 @@ export async function extractToPendingEntry(
   let imagePath: string | null = null;
   if (input.image) {
     imagePath = `${user.organizationId}/${id}.${IMAGE_TYPES[input.image.mediaType as ImageType]}`;
-    await uploadInboxImage(imagePath, input.image.bytes, input.image.mediaType);
+    try {
+      await uploadInboxImage(imagePath, input.image.bytes, input.image.mediaType);
+    } catch (error) {
+      console.error("AI Inbox: could not store the photo:", error);
+      throw new ExtractionError("uploadFailed", error);
+    }
   }
 
   try {

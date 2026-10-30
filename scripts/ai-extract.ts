@@ -56,7 +56,9 @@ const image = imagePath
   : undefined;
 
 const input = { text, image, source: "web" as const };
-const model = process.env.EXTRACTION_MODEL || "claude-haiku-5-5";
+const model = image
+  ? process.env.VISION_MODEL || "claude-sonnet-5-5"
+  : process.env.EXTRACTION_MODEL || "claude-haiku-5-5";
 console.log(`Model: ${model} | user role: ${user.role} | save: ${save}\n`);
 
 try {

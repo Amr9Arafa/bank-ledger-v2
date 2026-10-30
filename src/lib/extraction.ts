@@ -4,6 +4,9 @@ import { z } from "zod";
 import { addDays } from "./cheques.ts";
 import { minorToDecimal, toMinor } from "./money.ts";
 
+// Longest message the inbox accepts (checked in the form and on the server).
+export const MAX_TEXT_LENGTH = 2000;
+
 // Sent to the API as a JSON schema (structured outputs): the response always matches it.
 // Descriptions are part of the schema, so they double as per-field instructions.
 // Amounts are strings: we parse them with toMinor, never as floats.

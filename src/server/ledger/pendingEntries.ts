@@ -1,6 +1,6 @@
 // AI Inbox entries: what the model read, waiting for review. A pending entry touches no
 // balance; approving one creates the real movement or cheque in the same DB transaction.
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Extraction, ExtractionWarning } from "../../lib/extraction.ts";
 import type { ChequeInput, MovementInput } from "../../lib/validation.ts";
@@ -50,7 +50,8 @@ export type PendingEntryStatus = "pending" | "approved" | "rejected";
 
 const reviewer = alias(users, "reviewer");
 
-// Pending: oldest first, like a queue. Reviewed: the latest 50, newest first.
+// Newest first, so a just-sent entry appears right under the input form.
+// Reviewed: the latest 50.
 export async function listPendingEntries(
   organizationId: string,
   status: PendingEntryStatus,
@@ -84,7 +85,7 @@ export async function listPendingEntries(
       and(eq(pendingEntries.organizationId, organizationId), eq(pendingEntries.status, status)),
     )
     .orderBy(
-      status === "pending" ? asc(pendingEntries.createdAt) : desc(pendingEntries.reviewedAt),
+      status === "pending" ? desc(pendingEntries.createdAt) : desc(pendingEntries.reviewedAt),
     )
     .limit(status === "pending" ? 200 : 50);
 

@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { rejectEntry } from "@/actions/inbox";
+import InboxInputForm from "@/components/InboxInputForm";
 import InboxReviewForm from "@/components/InboxReviewForm";
 import InlineAction from "@/components/InlineAction";
 import { panel } from "@/components/styles";
@@ -66,6 +67,15 @@ export default async function InboxPage({ params, searchParams }: PageProps<"/[l
           </Link>
         ))}
       </nav>
+
+      {tab === "pending" && (
+        <section aria-labelledby="inbox-new" className={`${panel} mt-6 p-4 sm:p-5`}>
+          <h2 id="inbox-new" className="mb-3 text-lg font-semibold">
+            {t("input.title")}
+          </h2>
+          <InboxInputForm />
+        </section>
+      )}
 
       {entries.length === 0 && (
         <p className="mt-6 text-foreground-secondary">{t(`empty.${tab}`)}</p>

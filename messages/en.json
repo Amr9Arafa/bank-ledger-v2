@@ -369,6 +369,30 @@
       "chequeNumberMissing": "No cheque number found.",
       "amountWordsMissing": "Could not read the amount in words to double-check the digits.",
       "amountWordsMismatch": "The amount in words (“{value}”) does not match the digits."
+    },
+    "input": {
+      "title": "New entry",
+      "label": "Describe the transfer or cheque, or add a cheque photo",
+      "placeholder": "e.g. استلمنا تحويل 15 ألف من شركة النور على حساب CIB امبارح",
+      "addPhoto": "Add photo",
+      "changePhoto": "Change photo",
+      "removePhoto": "Remove photo",
+      "previewAlt": "Photo to send",
+      "shrinking": "Preparing the photo…",
+      "shrunk": "Photo reduced from {from} to {to}",
+      "send": "Read with AI",
+      "sending": "Reading… (a few seconds)",
+      "sent": "Added below. Check it, then approve or reject."
+    },
+    "errors": {
+      "emptyInput": "Type a message or add a photo.",
+      "textTooLong": "The message is too long: 2,000 characters at most.",
+      "imageTooLarge": "The photo is too large even after shrinking. Try another photo.",
+      "imageUnsupported": "This file can't be read as a photo. Use a JPEG or PNG photo.",
+      "aiUnavailable": "The AI service didn't respond. Nothing was saved and your message is still here: please try again in a minute.",
+      "aiUnreadable": "The AI couldn't read this. Write it more clearly, or take a sharper photo, and try again.",
+      "aiFailed": "The AI service is not set up correctly, so trying again won't help. Please tell an admin.",
+      "uploadFailed": "The photo couldn't be saved. Nothing was saved: please try again."
     }
   }
 }
