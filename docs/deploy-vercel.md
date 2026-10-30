@@ -31,6 +31,10 @@ sure nobody can create a login on their own:
 2. Supabase → **Project Settings → API Keys**: copy the **secret key** (`sb_secret_…`).
    Put it in `.env.local` as `SUPABASE_SECRET_KEY` and in Vercel (step 3). It lets the
    server create users; it must never reach the browser.
+3. Supabase → **Authentication → URL Configuration**: **Site URL**
+   `https://arafa-ledger.vercel.app`; **Redirect URLs** `https://arafa-ledger.vercel.app/**`
+   and `http://localhost:3000/**`. Login is by password only, so nothing uses these yet;
+   they matter once Supabase sends emails (password reset, invites) with links back to us.
 
 Before entering real company figures: reset the database password (it was shared in a
 chat during setup) and update `DATABASE_URL` / `DATABASE_URL_MIGRATIONS` everywhere.
@@ -85,8 +89,8 @@ Project → **Settings → Functions → Function Region** → choose **Frankfur
 
 ## 5. Check it works
 
-1. Open the URL Vercel shows (`https://bank-ledger-v2-….vercel.app`). It redirects to
-   `/ar/login`.
+1. Open **`https://arafa-ledger.vercel.app`** (the main production domain; the older
+   `https://bank-ledger-v2.vercel.app` also works). It redirects to `/ar/login`.
 2. Sign in with your admin login: the dashboard shows the seeded accounts.
 3. Click an account: the ledger opens. Switch to English and back.
 4. Settings → Users: add a test accountant, sign in as them in a private window, and
@@ -98,9 +102,10 @@ If something fails, open the deployment → **Logs** (runtime errors) or the bui
 ## 6. Telegram bot (AI Inbox input)
 
 Telegram calls `POST /api/telegram/webhook` for every message sent to the bot, so it needs
-a public HTTPS URL: the production domain **`https://bank-ledger-v2.vercel.app`**. The
-other `*.vercel.app` URLs sit behind Vercel's login (Standard Protection) and Telegram
-would get a redirect there.
+a public HTTPS URL: the main production domain **`https://arafa-ledger.vercel.app`**.
+Deployment and branch URLs (`…-zamalek1.vercel.app`) sit behind Vercel's login (Standard
+Protection) and Telegram would get a redirect there. Telegram does not follow redirects,
+so the webhook must point straight at the domain that serves the app.
 
 1. Vercel env vars (Production, Sensitive): `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`,
    and `ANTHROPIC_API_KEY` for the extraction. Redeploy after adding them.
@@ -110,10 +115,11 @@ would get a redirect there.
    Each person must press **Start** in the bot once, or Telegram refuses the replies.
 3. Point the bot at production (once; again only if the domain or secret changes):
    ```
-   npm run telegram:webhook -- set https://bank-ledger-v2.vercel.app --drop-pending
+   npm run telegram:webhook -- set https://arafa-ledger.vercel.app --drop-pending
    npm run telegram:webhook -- info
    ```
-   `--drop-pending` throws away messages queued while no webhook was set.
+   `--drop-pending` throws away messages queued while no webhook was set: use it only for
+   the first `set`. When moving to a new domain, leave it out so no real message is lost.
 4. Send the bot a text message and a cheque photo. Each gets a reply with what was read,
    and appears in the AI Inbox for approval.
 
@@ -149,5 +155,5 @@ Telegram from your machine. Posting the same update twice must create only one e
 | Old data after saving | Should not happen: actions call `revalidatePath` | Hard refresh; if it persists, check the action ran (logs) |
 | Dates look one day off | A date was created from a JS `Date` in UTC | Dates must stay `YYYY-MM-DD` strings; see `src/lib/dates.ts` |
 | Bot does not answer; `telegram:webhook -- info` shows `Wrong response from the webhook: 401` | `TELEGRAM_WEBHOOK_SECRET` differs between Vercel and the last `set` | Fix the Vercel value and redeploy, or run `set` again |
-| `info` shows `302 Found` | The webhook URL is behind Vercel's login | `set` with `https://bank-ledger-v2.vercel.app` |
+| `info` shows `302 Found` | The webhook URL is behind Vercel's login | `set` with `https://arafa-ledger.vercel.app` |
 | Bot does not answer; no error in `info` | Sender's Telegram id is not linked (see the log), or they never pressed Start | Link it in Settings; press Start in the bot |
