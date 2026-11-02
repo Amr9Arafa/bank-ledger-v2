@@ -168,6 +168,11 @@ export default async function AccountLedgerPage({
                   <span className={isVoid(r) ? "text-foreground-tertiary line-through" : ""}>
                     <bdi>{details(r)}</bdi>
                   </span>
+                  {r.notes && (
+                    <p className="whitespace-pre-line text-xs text-foreground-secondary">
+                      <bdi>{r.notes}</bdi>
+                    </p>
+                  )}
                   {isVoid(r) && r.statusReason && (
                     <p className="text-xs text-foreground-tertiary">
                       {t("voidedBecause", { reason: r.statusReason })}

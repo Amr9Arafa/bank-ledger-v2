@@ -93,19 +93,20 @@ const extraction = (fields: Partial<Extraction>): Extraction => ({
   ...fields,
 });
 
-test("the reply summarises the entry, lists warnings and links to the inbox", () => {
+test("the reply summarises the entry and lists warnings, without a link", () => {
   const reply = buildSavedReply(t, "en", {
     extracted: extraction({ account_text: "CIB" }),
     warnings: [{ code: "accountUnresolved", value: "CIB" }, { code: "counterpartyNew", value: "Al Nour" }],
     accountName: null,
-    inboxUrl: "https://example.test/en/inbox",
+    text: "15000 from Al Nour to CIB",
   });
   assert.match(reply, /Added to the AI Inbox/);
   assert.match(reply, /Incoming transfer/);
   assert.match(reply, /Amount: EGP\s15,000\.00/);
   assert.match(reply, /Account: CIB/);
   assert.match(reply, /Please check:\n• .+\n• “Al Nour” is a new name/);
-  assert.match(reply, /https:\/\/example\.test\/en\/inbox$/);
+  assert.match(reply, /to add a new name\.$/);
+  assert.doesNotMatch(reply, /https?:|Review it here/);
   assert.doesNotMatch(reply, /Cheque number/);
 });
 
@@ -114,11 +115,22 @@ test("a cheque reply shows the cheque number; missing values show a dash", () =>
     extracted: extraction({ kind: "cheque", direction: "out", cheque_number: null, date: null }),
     warnings: [],
     accountName: "Main CIB",
-    inboxUrl: "u",
+    text: "",
   });
   assert.match(reply, /Cheque\n/);
   assert.match(reply, /Account: Main CIB/);
   assert.match(reply, /Date: —/);
+  assert.match(reply, /Notes: —/);
   assert.match(reply, /Cheque number: —/);
   assert.doesNotMatch(reply, /Please check/);
+});
+
+test("the reply shows the notes, with a labelled note exactly as written", () => {
+  const reply = buildSavedReply(t, "en", {
+    extracted: extraction({ notes: "Invoice #234" }),
+    warnings: [],
+    accountName: "Main CIB",
+    text: "15000 from Al Nour\nnote: payment for invoice 234",
+  });
+  assert.match(reply, /Notes: payment for invoice 234 · Invoice #234$/);
 });

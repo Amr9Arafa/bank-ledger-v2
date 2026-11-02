@@ -1,7 +1,7 @@
 // Telegram bot: reading an incoming update and writing the reply. Pure functions only;
 // the Bot API calls live in server/telegram.
 import { z } from "zod";
-import type { Extraction, ExtractionWarning } from "./extraction.ts";
+import { type Extraction, type ExtractionWarning, mergedNotes } from "./extraction.ts";
 import { MAX_IMAGE_BYTES } from "./image.ts";
 import { formatEGP, toMinor } from "./money.ts";
 
@@ -99,7 +99,8 @@ export function buildSavedReply(
     extracted: Extraction;
     warnings: ExtractionWarning[];
     accountName: string | null;
-    inboxUrl: string;
+    // The message text or photo caption, for a note the user labelled.
+    text: string;
   },
 ): string {
   const { extracted: x, warnings } = input;
@@ -125,12 +126,11 @@ export function buildSavedReply(
     `${t("telegram.date")}: ${x.date ?? none}`,
   ];
   if (x.kind === "cheque") lines.push(`${t("telegram.chequeNumber")}: ${x.cheque_number ?? none}`);
+  lines.push(`${t("telegram.notes")}: ${mergedNotes(input.text, x.notes) || none}`);
 
   if (warnings.length > 0) {
     lines.push("", `⚠️ ${t("telegram.check")}`);
     for (const w of warnings) lines.push(`• ${t(`inbox.warnings.${w.code}`, { value: w.value ?? "" })}`);
   }
-
-  lines.push("", t("telegram.review", { url: input.inboxUrl }));
   return lines.join("\n");
 }

@@ -159,3 +159,47 @@ test("found nothing: only when both the amount and the direction are missing", (
   assert.equal(foundNothing({ ...transfer, direction: null }), false);
   assert.equal(foundNothing({ ...cheque, amount: null }), false);
 });
+
+test("labeledNote: the rest of the line after a note label, as written", async () => {
+  const { labeledNote } = await import("./extraction.ts");
+  assert.equal(labeledNote("transfer 8000 to Ahmed. note: payment for invoice 234"), "payment for invoice 234");
+  assert.equal(labeledNote("Notes:  advance, 50%  "), "advance, 50%");
+  assert.equal(labeledNote("حولنا 5000 ملاحظة: دفعة من فاتورة 234"), "دفعة من فاتورة 234");
+  assert.equal(labeledNote("ملاحظات: سلفة مقدم عقد"), "سلفة مقدم عقد");
+  assert.equal(labeledNote("ملاحظه: سلفة"), "سلفة");
+  // The real message: "notes =" mid-line, and the next line is not part of the note.
+  assert.equal(
+    labeledNote("حولنا فلوس الي دكتور محمود و اكتب في ال notes = social media \nمبلغ 20002 من حساب بنك الاهلي"),
+    "social media",
+  );
+  assert.equal(labeledNote("note: a\nnotes: b"), "a · b");
+  assert.equal(labeledNote("this will denote: nothing"), null);
+  assert.equal(labeledNote("دفعة من فاتورة 234"), null);
+  assert.equal(labeledNote(null), null);
+});
+
+test("mergedNotes: the labelled note is kept as written, with the model's other details", async () => {
+  const { mergedNotes } = await import("./extraction.ts");
+  // The model copied it: nothing added twice.
+  assert.equal(mergedNotes("note: invoice 234", "invoice 234"), "invoice 234");
+  assert.equal(mergedNotes("note: invoice 234", "invoice 234 · first instalment"), "invoice 234 · first instalment");
+  // The model dropped or reworded it: the user's words come first.
+  assert.equal(mergedNotes("ملاحظة: دفعة أولى", null), "دفعة أولى");
+  assert.equal(mergedNotes("note: invoice 234", "Invoice #234 payment"), "invoice 234 · Invoice #234 payment");
+  // No label: the model's notes as now.
+  assert.equal(mergedNotes("دفعة من فاتورة 234", "دفعة من فاتورة 234"), "دفعة من فاتورة 234");
+  assert.equal(mergedNotes(null, null), "");
+});
+
+test("reviewDefaults: notes include the labelled note from the raw text", async () => {
+  const { reviewDefaults } = await import("./extraction.ts");
+  const fromModel = { ...transfer, notes: "first instalment" };
+  const resolved = checkExtraction(fromModel, context).resolved;
+  assert.equal(
+    reviewDefaults(fromModel, resolved, context.today, "15000 from Al Nour. note: invoice 234").notes,
+    "invoice 234 · first instalment",
+  );
+  assert.equal(reviewDefaults(fromModel, resolved, context.today).notes, "first instalment");
+  const d = reviewDefaults(cheque, checkExtraction(cheque, context).resolved, context.today, "ملاحظة: إيجار");
+  assert.equal(d.notes, "إيجار");
+});

@@ -29,9 +29,8 @@ export async function POST(request: Request) {
   if (message) {
     // Answer Telegram now; reading a photo can take longer than Telegram waits, and a
     // timeout would make it deliver the message again. Errors are replied to the user.
-    const origin = new URL(request.url).origin;
     after(() =>
-      handleTelegramMessage(message, origin).catch((error) =>
+      handleTelegramMessage(message).catch((error) =>
         console.error("Telegram webhook: unexpected error:", error),
       ),
     );

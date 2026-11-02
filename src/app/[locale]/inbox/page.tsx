@@ -162,6 +162,7 @@ export default async function InboxPage({ params, searchParams }: PageProps<"/[l
                       checkExtraction(x, { accounts, counterparties, today, hasImage: false })
                         .resolved,
                       today,
+                      entry.rawText,
                     )}
                     accounts={accounts}
                     warnedFields={entry.warnings.flatMap((w) => WARNING_FIELDS[w.code] ?? [])}

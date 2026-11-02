@@ -38,7 +38,7 @@ export const extractionSchema = z.object({
   notes: z
     .string()
     .nullable()
-    .describe("Short note with useful details not captured elsewhere (purpose, reference number)."),
+    .describe('Text the input labels as a note ("note:", "ملاحظة:"...), copied exactly as written, followed by other useful details not captured elsewhere (purpose, invoice or reference number).'),
   cheque_number: z.string().nullable().describe("Cheques only: the cheque number."),
   amount_in_words: z
     .string()
@@ -189,6 +189,26 @@ export function normalizeName(name: string): string {
     .trim();
 }
 
+// "note: ...", "notes = ...", "ملاحظة: ..." (also ملاحظات / ملاحظه): the rest of that line.
+// Not preceded by a letter, so "denote:" does not count.
+const NOTE_LABEL = /(?<![\p{L}\p{N}])(?:notes?|ملاحظة|ملاحظات|ملاحظه)\s*[:=：]\s*(.+)$/imu;
+
+// What the user labelled as a note, as written; null if they did not label one.
+export function labeledNote(text: string | null | undefined): string | null {
+  const lines = (text ?? "").split(/\r?\n/);
+  const notes = lines.map((l) => NOTE_LABEL.exec(l)?.[1].trim()).filter(Boolean);
+  return notes.length > 0 ? notes.join(" · ") : null;
+}
+
+// The notes to prefill: the labelled note exactly as typed, even if the model reworded or
+// dropped it, followed by any other details the model picked up.
+export function mergedNotes(rawText: string | null | undefined, modelNotes: string | null): string {
+  const model = modelNotes?.trim() ?? "";
+  const labeled = labeledNote(rawText);
+  if (!labeled || model.includes(labeled)) return model;
+  return model ? `${labeled} · ${model}` : labeled;
+}
+
 // Starting values for the review form, with the same field names as the manual forms.
 // A cheque's written date is its due date when it is in the future (post-dated);
 // otherwise it is the issue date. Anything unknown is left empty for the reviewer.
@@ -196,12 +216,13 @@ export function reviewDefaults(
   extraction: Extraction,
   resolved: ResolvedExtraction,
   today: string,
+  rawText: string | null = null,
 ): Record<string, string> {
   const common = {
     bankAccountId: resolved.accountId ?? "",
     amountMinor: resolved.amountMinor === null ? "" : minorToDecimal(resolved.amountMinor),
     partyName: resolved.counterparty ?? "",
-    notes: extraction.notes ?? "",
+    notes: mergedNotes(rawText, extraction.notes),
   };
   if (extraction.kind === "cheque") {
     const postDated = resolved.date !== null && resolved.date > today;

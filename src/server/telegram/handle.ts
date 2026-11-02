@@ -25,7 +25,7 @@ function translator(locale: "ar" | "en") {
   return createTranslator({ locale, messages: locale === "ar" ? ar : en }) as unknown as Translate;
 }
 
-export async function handleTelegramMessage(message: TelegramMessage, appOrigin: string) {
+export async function handleTelegramMessage(message: TelegramMessage) {
   // Unlinked accounts get no reply: the bot does not reveal itself to strangers.
   const user = await getUserByTelegramId(message.fromId);
   if (!user) {
@@ -76,7 +76,7 @@ export async function handleTelegramMessage(message: TelegramMessage, appOrigin:
         extracted,
         warnings: entry.warnings as ExtractionWarning[],
         accountName: account?.name ?? null,
-        inboxUrl: `${appOrigin}/${user.language}/inbox`,
+        text: message.text,
       }),
     );
   } catch (error) {
