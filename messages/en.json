@@ -374,6 +374,7 @@
       "dateInFuture": "The date {value} is in the future.",
       "dateFarFuture": "The date {value} is more than a year ahead.",
       "dateFarPast": "The date {value} is more than 6 months ago.",
+      "dateBeforeOpening": "The date {value} is before this account's start date, so it cannot be saved. For an old cheque, enter the date it cleared.",
       "chequeNumberMissing": "No cheque number found.",
       "amountWordsMissing": "Could not read the amount in words to double-check the digits.",
       "amountWordsMismatch": "The amount in words (“{value}”) does not match the digits."

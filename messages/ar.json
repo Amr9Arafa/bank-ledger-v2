@@ -374,6 +374,7 @@
       "dateInFuture": "التاريخ {value} في المستقبل.",
       "dateFarFuture": "التاريخ {value} بعد أكثر من سنة.",
       "dateFarPast": "التاريخ {value} منذ أكثر من 6 أشهر.",
+      "dateBeforeOpening": "التاريخ {value} قبل تاريخ بداية هذا الحساب، فلا يمكن حفظه. إذا كان شيكًا قديمًا، أدخل تاريخ صرفه.",
       "chequeNumberMissing": "لم يُعثر على رقم الشيك.",
       "amountWordsMissing": "تعذّرت قراءة المبلغ بالحروف للتأكد من الأرقام.",
       "amountWordsMismatch": "المبلغ بالحروف («{value}») لا يطابق المبلغ بالأرقام."

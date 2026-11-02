@@ -11,6 +11,7 @@ export async function getActiveAccounts(organizationId: string, database: Execut
       bankName: bankAccounts.bankName,
       receivesTransfers: bankAccounts.receivesTransfers,
       issuesCheques: bankAccounts.issuesCheques,
+      openingDate: bankAccounts.openingDate,
     })
     .from(bankAccounts)
     .where(

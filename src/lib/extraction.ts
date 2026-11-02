@@ -67,12 +67,14 @@ export type ExtractionWarningCode =
   | "dateInFuture"
   | "dateFarFuture"
   | "dateFarPast"
+  | "dateBeforeOpening"
   | "chequeNumberMissing"
   | "amountWordsMissing"
   | "amountWordsMismatch";
 
 export type ExtractionContext = {
-  accounts: { id: string; receivesTransfers: boolean; issuesCheques: boolean }[];
+  // openingDate: "YYYY-MM-DD"; the ledger rejects anything dated before it.
+  accounts: { id: string; receivesTransfers: boolean; issuesCheques: boolean; openingDate: string }[];
   counterparties: string[];
   // "YYYY-MM-DD" in Cairo.
   today: string;
@@ -146,6 +148,9 @@ export function checkExtraction(
       warn("dateFarFuture", date);
     } else if (!isCheque && date > context.today) {
       warn("dateInFuture", date);
+    } else if (account && date < account.openingDate) {
+      // Cannot be saved as is. Usually an old cheque, recorded on its clearing date.
+      warn("dateBeforeOpening", date);
     } else if (date < addDays(context.today, -MAX_DAYS_BACK)) {
       warn("dateFarPast", date);
     }
@@ -263,5 +268,6 @@ export const WARNING_FIELDS: Record<ExtractionWarningCode, string[]> = {
   dateInFuture: ["transactionDate"],
   dateFarFuture: ["transactionDate", "dueDate"],
   dateFarPast: ["transactionDate"],
+  dateBeforeOpening: ["transactionDate"],
   chequeNumberMissing: ["chequeNumber"],
 };

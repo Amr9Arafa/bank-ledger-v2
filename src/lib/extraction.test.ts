@@ -6,8 +6,8 @@ const CIB = "11111111-1111-4111-8111-111111111111";
 const NBE = "22222222-2222-4222-8222-222222222222";
 const context = {
   accounts: [
-    { id: CIB, receivesTransfers: true, issuesCheques: true },
-    { id: NBE, receivesTransfers: false, issuesCheques: false },
+    { id: CIB, receivesTransfers: true, issuesCheques: true, openingDate: "2026-01-01" },
+    { id: NBE, receivesTransfers: false, issuesCheques: false, openingDate: "2026-01-01" },
   ],
   counterparties: ["شركة النور للتوريدات", "Ahmed Hassan"],
   today: "2026-10-29",
@@ -91,6 +91,29 @@ test("date: missing, invalid, future and far past", () => {
   assert.deepEqual(codes({ ...transfer, date: "2026-10-30" }), ["dateInFuture"]);
   assert.deepEqual(codes({ ...transfer, date: "2026-05-02" }), []);
   assert.deepEqual(codes({ ...transfer, date: "2026-05-01" }), ["dateFarPast"]);
+});
+
+test("date: before the account's opening date is flagged (an old cheque, usually)", () => {
+  const started = {
+    ...context,
+    accounts: context.accounts.map((a) => ({ ...a, openingDate: "2026-10-20" })),
+  };
+  const check = (e: Extraction) => checkExtraction(e, started).warnings;
+  assert.deepEqual(check({ ...cheque, date: "2026-10-19" }), [
+    { code: "dateBeforeOpening", value: "2026-10-19" },
+  ]);
+  assert.deepEqual(check({ ...transfer, date: "2026-10-19" }), [
+    { code: "dateBeforeOpening", value: "2026-10-19" },
+  ]);
+  // On the opening date itself it can be saved.
+  assert.deepEqual(check({ ...cheque, date: "2026-10-20" }), []);
+  // Takes the place of "far past": one warning about the date is enough.
+  assert.deepEqual(check({ ...transfer, date: "2026-01-01" }).map((w) => w.code), ["dateBeforeOpening"]);
+  // Unknown account: no opening date to compare with.
+  assert.deepEqual(
+    check({ ...transfer, account_id: null, date: "2026-10-19" }).map((w) => w.code),
+    ["accountUnresolved"],
+  );
 });
 
 test("date: post-dated cheques are normal up to a year ahead", () => {

@@ -101,6 +101,7 @@ async function loadContext(user: LedgerUser, database: Executor) {
       accountNumber: bankAccounts.accountNumber,
       receivesTransfers: bankAccounts.receivesTransfers,
       issuesCheques: bankAccounts.issuesCheques,
+      openingDate: bankAccounts.openingDate,
     })
     .from(bankAccounts)
     .where(
