@@ -58,9 +58,12 @@ Reference implementation (v1, already working): https://github.com/Amr9Arafa/Ban
   `deposit` stays valid only so existing rows keep their history.
 - An internal transfer is two linked rows sharing `transfer_group_id`; voiding one voids both.
 
-## Real data (since 2026-10-31)
+## Real data (start date 2026-11-02)
 
 The Supabase database holds real company data. It is the only database.
+Every account's opening date is 2026-11-02; its opening balance is the bank balance at the
+end of 2026-11-01. Cheques issued before that are not entered upfront: each is recorded on
+its clearing date (see "Cut-over" in `docs/technical-plan.md`).
 
 - Tests may only run inside rolled-back transactions (the ledger's `database` argument).
   Never point a test or script at real rows outside such a transaction.

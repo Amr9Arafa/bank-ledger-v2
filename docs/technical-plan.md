@@ -187,6 +187,21 @@ Every write follows the same five steps, and each multi-row write runs inside on
 
 **Duplicate warning** (FR-4): before insert, look for a row with the same account, amount, date and reference. If one exists, return a warning instead of saving, and the form shows "Save anyway".
 
+## Cut-over to real data
+
+Real data starts on **2026-11-02**. Every account's opening date is 2026-11-02 and its opening balance is the bank balance at the end of 2026-11-01, taken from the bank.
+
+- The ledger rejects any movement or cheque dated before the account's opening date, from every entry path (forms, internal transfers, AI Inbox approval, any future import).
+- **Old cheques** (issued before the start date, not yet cleared) are not entered upfront. The opening balance is the bank balance, so on day one book balance = bank balance, and the book balance is too high by the total of those old cheques until they clear.
+- **When an old cheque clears**, enter it as a cheque with issue date = the clearing date (the real issue date goes in notes), then mark it cleared on the same day. Book and bank balances both drop on that date, matching the statement. A one-step "old cheque, already cleared" option (real issue date allowed before the start date, cleared date on or after it) is planned as part of statement reconciliation.
+- The AI Inbox warns when the date it read is before the account's opening date, so the reviewer enters the clearing date instead.
+
+**Bank statement import and reconciliation (later phases) must:**
+
+1. Skip statement lines dated before the account's opening date, listing them as "before start date" rather than failing. The ledger's opening-date rule is the second line of defence.
+2. Treat a cheque debit on or after the start date with no matching issued cheque as a likely old cheque, and offer "record as old cheque" instead of flagging it as an error.
+3. Never change the opening balance; a mismatch on the first statement is reported, not absorbed.
+
 ## Auth and permissions
 
 Supabase Auth proves who the user is; our own `users` table decides what they may do, and that check happens on the server for every write.
@@ -295,7 +310,7 @@ The biggest risk is not technical: balances that do not match the bank will make
 | Risk | Mitigation |
 | --- | --- |
 | App balance does not match the bank statement | Record fees, deposits and internal transfers from day one; reconcile the first real month with the team |
-| Wrong opening balances | Take them from the bank statement on one agreed date; earlier transactions are rejected |
+| Wrong opening balances | Take them from the bank on one agreed date (balances at the end of 2026-11-01, start date 2026-11-02); earlier transactions are rejected |
 | Rounding errors in money | Integer piasters everywhere; string-based parsing; balance contract test |
 | RTL bugs found late | Logical CSS rule from M1; test every screen in Arabic |
 | Someone edits history silently | No hard deletes, audit log on every change, admin-only edits to cleared cheques |
