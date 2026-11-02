@@ -58,6 +58,16 @@ Reference implementation (v1, already working): https://github.com/Amr9Arafa/Ban
   `deposit` stays valid only so existing rows keep their history.
 - An internal transfer is two linked rows sharing `transfer_group_id`; voiding one voids both.
 
+## Real data (since 2026-10-31)
+
+The Supabase database holds real company data. It is the only database.
+
+- Tests may only run inside rolled-back transactions (the ledger's `database` argument).
+  Never point a test or script at real rows outside such a transaction.
+- Never insert, update or delete data, run scripts with `--save`, run `db:seed`, or apply
+  migrations (`db:migrate`, Supabase MCP) without first showing me the exact SQL or command
+  and getting my OK. Read-only queries (`select`) are fine.
+
 ## Secrets and environment
 
 - Secrets live in `.env.local` (never committed) and in Vercel env vars as "Secret".
