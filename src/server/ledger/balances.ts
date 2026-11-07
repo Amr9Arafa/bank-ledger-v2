@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db, type Executor } from "../db/client.ts";
-import { isCredit } from "./sql.ts";
+import { bankDate, countsAtBank, isCredit, signedAmount } from "./sql.ts";
+import { LedgerError } from "./types.ts";
 
 export type AccountBalance = {
   id: string;
@@ -87,4 +88,25 @@ export async function getAccountBalances(
     bankBalanceMinor: Number(r.bank_balance_minor),
     outstandingChequesMinor: Number(r.outstanding_cheques_minor),
   }));
+}
+
+// What the bank statement should show at the end of `date`: the opening balance plus every
+// movement up to that day, counting cheques on the day they cleared (not the day written).
+export async function getBankBalanceAsOf(
+  organizationId: string,
+  bankAccountId: string,
+  date: string,
+  database: Executor = db,
+): Promise<number> {
+  const [row] = await database.execute<{ balance: string }>(sql`
+    select a.opening_balance_minor + coalesce((
+      select sum(${signedAmount})
+      from transactions t
+      where t.bank_account_id = a.id and ${countsAtBank} and ${bankDate} <= ${date}
+    ), 0) as balance
+    from bank_accounts a
+    where a.id = ${bankAccountId} and a.organization_id = ${organizationId}
+  `);
+  if (!row) throw new LedgerError("accountNotFound");
+  return Number(row.balance);
 }

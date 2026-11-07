@@ -53,7 +53,9 @@
     "chequeMeta": "{account}, cheque no. {number}",
     "noUpcoming": "No cheques waiting to clear.",
     "allCheques": "All cheques",
-    "allChequesCount": "All cheques ({count})"
+    "allChequesCount": "All cheques ({count})",
+    "reconciledUntil": "Reconciled until {date}",
+    "notReconciled": "Not reconciled yet"
   },
   "nav": {
     "home": "Home",
@@ -158,7 +160,8 @@
     "lineNotMatched": "This line is not matched.",
     "lineNotIgnored": "This line is not ignored.",
     "notACandidate": "This record does not fit the statement line (amount, direction, date or cheque number), or it is already matched.",
-    "typeNotForLine": "This kind of record does not fit the line's direction."
+    "typeNotForLine": "This kind of record does not fit the line's direction.",
+    "accountHasStatements": "This account has imported bank statements, so its opening balance and date can no longer change. Delete its statement imports first."
   },
   "ledger": {
     "types": {
@@ -592,6 +595,33 @@
       "bulkInterest": "Create {count, plural, one {# interest record} other {# interest records}}",
       "bulkNote": "One record per line that has no possible record in the app. Lines that might match something are left for you.",
       "keep": "Keep"
+    },
+    "accounts": {
+      "title": "Accounts",
+      "reconciledUntil": "Reconciled until {date}",
+      "notReconciled": "Not reconciled yet",
+      "coveredUntil": "Statements up to {date}",
+      "noStatements": "No statements imported",
+      "gap": "No statement for {from} – {to}",
+      "unmatched": "{count, plural, one {# line to review} other {# lines to review}}",
+      "latest": "On {date}: bank {bank} · app {app}"
+    },
+    "checks": {
+      "title": "Checks",
+      "continuityOk": "Continues from the previous statement (or the opening balance) without a gap.",
+      "closingTitle": "Closing balance on {date}",
+      "bank": "Bank statement",
+      "app": "App (bank balance)",
+      "difference": "Difference",
+      "explainedBy": "Explained by",
+      "bankOnly": "{count, plural, one {# line} other {# lines}} on the statement, not in the app",
+      "ignored": "{count, plural, one {# ignored line} other {# ignored lines}}",
+      "appOnly": "{count, plural, one {# record} other {# records}} in the app, not on the statement yet",
+      "timing": "{count, plural, one {# match} other {# matches}} dated on the other side of {date}",
+      "unexplained": "Unexplained",
+      "unexplainedNote": "No line explains this: a statement may be missing, or the opening balance differs from the bank.",
+      "reconciled": "Fully reconciled: every line is accounted for.",
+      "notReconciled": "Not reconciled yet: {count, plural, one {# line} other {# lines}} to review."
     }
   }
 }

@@ -74,6 +74,62 @@ function statementBalanceAt(statement: ParsedStatement, date: string): number {
     .reduce((sum, l) => sum + signed(l), statement.openingBalanceMinor);
 }
 
+type PreviousImport = { closingDate: string; closingBalanceMinor: number };
+
+// The statement this one continues from: the latest import of the account closing on or
+// before `closingDate`. For an existing import, `before` limits it to imports made before it
+// (what was there when it was imported) and excludes the import itself.
+export async function previousImport(
+  tx: Executor,
+  bankAccountId: string,
+  closingDate: string,
+  before: { id: string } | null,
+): Promise<PreviousImport | null> {
+  const [row] = await tx
+    .select({ closingDate: statementImports.closingDate, closingBalanceMinor: statementImports.closingBalanceMinor })
+    .from(statementImports)
+    .where(
+      and(
+        eq(statementImports.bankAccountId, bankAccountId),
+        sql`${statementImports.closingDate} <= ${closingDate}`,
+        // Compared in SQL against the stored timestamp: a JS Date would drop the microseconds.
+        before
+          ? sql`${statementImports.id} <> ${before.id} and ${statementImports.createdAt} < (select s.created_at from statement_imports s where s.id = ${before.id})`
+          : undefined,
+      ),
+    )
+    .orderBy(desc(statementImports.closingDate), desc(statementImports.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
+// Does this statement continue the account's history without a gap or a jump in balance?
+// First statement: compared with the account's opening balance (the balance at the end of
+// the day before the start date). Later ones: with the previous statement's closing balance.
+export function continuityWarnings(
+  account: { openingDate: string; openingBalanceMinor: number },
+  statement: ParsedStatement,
+  previous: PreviousImport | null,
+): ImportWarning[] {
+  if (!previous) {
+    const dayBefore = addDays(account.openingDate, -1);
+    if (statement.openingDate > dayBefore) {
+      return [{ code: "startsAfterOpening", accountOpeningDate: account.openingDate, statementOpeningDate: statement.openingDate }];
+    }
+    const statementMinor = statementBalanceAt(statement, dayBefore);
+    return statementMinor === account.openingBalanceMinor
+      ? []
+      : [{ code: "openingBalanceMismatch", date: dayBefore, appMinor: account.openingBalanceMinor, statementMinor }];
+  }
+  if (statement.openingDate > previous.closingDate) {
+    return [{ code: "gap", from: previous.closingDate, to: statement.openingDate }];
+  }
+  const statementMinor = statementBalanceAt(statement, previous.closingDate);
+  return statementMinor === previous.closingBalanceMinor
+    ? []
+    : [{ code: "previousBalanceMismatch", date: previous.closingDate, previousMinor: previous.closingBalanceMinor, statementMinor }];
+}
+
 // All checks shared by preview and import. Throws on errors, returns warnings and counts.
 async function analyze(tx: Executor, user: LedgerUser, bankAccountId: string, statement: ParsedStatement) {
   const [account] = await tx
@@ -109,34 +165,8 @@ async function analyze(tx: Executor, user: LedgerUser, bankAccountId: string, st
   );
   const newLines = statement.lines.filter((l) => !existing.has(l.lineKey));
 
-  const warnings: ImportWarning[] = [];
-  // The latest earlier statement this one continues from (by closing date).
-  const [previous] = await tx
-    .select()
-    .from(statementImports)
-    .where(and(eq(statementImports.bankAccountId, account.id), sql`${statementImports.closingDate} <= ${statement.closingDate}`))
-    .orderBy(desc(statementImports.closingDate), desc(statementImports.createdAt))
-    .limit(1);
-
-  if (!previous) {
-    // The opening balance is the balance at the end of the day before the start date.
-    const dayBefore = addDays(account.openingDate, -1);
-    if (statement.openingDate > dayBefore) {
-      warnings.push({ code: "startsAfterOpening", accountOpeningDate: account.openingDate, statementOpeningDate: statement.openingDate });
-    } else {
-      const statementMinor = statementBalanceAt(statement, dayBefore);
-      if (statementMinor !== account.openingBalanceMinor) {
-        warnings.push({ code: "openingBalanceMismatch", date: dayBefore, appMinor: account.openingBalanceMinor, statementMinor });
-      }
-    }
-  } else if (statement.openingDate > previous.closingDate) {
-    warnings.push({ code: "gap", from: previous.closingDate, to: statement.openingDate });
-  } else {
-    const statementMinor = statementBalanceAt(statement, previous.closingDate);
-    if (statementMinor !== previous.closingBalanceMinor) {
-      warnings.push({ code: "previousBalanceMismatch", date: previous.closingDate, previousMinor: previous.closingBalanceMinor, statementMinor });
-    }
-  }
+  const previous = await previousImport(tx, account.id, statement.closingDate, null);
+  const warnings = continuityWarnings(account, statement, previous);
   if (statement.lines.length > 0 && newLines.length === 0) warnings.push({ code: "nothingNew" });
 
   const preview: ImportPreview = {

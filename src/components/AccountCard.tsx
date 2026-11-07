@@ -2,12 +2,20 @@ import { useLocale, useTranslations } from "next-intl";
 import { panel } from "@/components/styles";
 import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
+import { formatDay } from "@/lib/dates";
 import { formatAmount, formatEGP } from "@/lib/money";
 import type { AccountBalance } from "@/server/ledger/balances";
 
 // One bank account: book balance first, then how much of the bank balance is already
 // promised to cheques that have not cleared yet.
-export default function AccountCard({ account }: { account: AccountBalance }) {
+// reconciledUntil: last day the app matches the bank statements (null: not yet; undefined: not shown).
+export default function AccountCard({
+  account,
+  reconciledUntil,
+}: {
+  account: AccountBalance;
+  reconciledUntil?: string | null;
+}) {
   const t = useTranslations("dashboard");
   const locale = useLocale() as Locale;
   const { bookBalanceMinor: book, bankBalanceMinor: bank, outstandingChequesMinor: out } = account;
@@ -84,6 +92,16 @@ export default function AccountCard({ account }: { account: AccountBalance }) {
               <p className="text-foreground-tertiary">{t("noCheques")}</p>
             </div>
           </>
+        )}
+        {reconciledUntil !== undefined && (
+          <Link
+            href="/statements"
+            className={`mt-3 block text-xs hover:underline ${reconciledUntil ? "text-credit" : "text-foreground-tertiary"}`}
+          >
+            {reconciledUntil
+              ? t("reconciledUntil", { date: formatDay(reconciledUntil, locale) })
+              : t("notReconciled")}
+          </Link>
         )}
       </div>
     </article>

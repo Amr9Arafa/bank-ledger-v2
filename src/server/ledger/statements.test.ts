@@ -23,6 +23,8 @@ const load = async () => ({
   ...(await import("./cheques.ts")),
   ...(await import("./reconcile.ts")),
   ...(await import("./balances.ts")),
+  ...(await import("./bankAccounts.ts")),
+  ...(await import("./statementChecks.ts")),
 });
 
 const ADMIN_ID = "4fe23c29-0ab0-43c0-9bfd-a5a296b58841";
@@ -45,6 +47,10 @@ after(async () => {
   if (!skip) await (await load()).closeDatabase();
 });
 
+// The file text of each synthetic statement, stored as the import's raw text (the live
+// continuity checks read it back).
+const sourceText = new Map<string, string>();
+
 // A synthetic NBE statement.
 function statement(ref: string, open: string, lines: string[], close: string, account = ACCOUNT_NO): ParsedStatement {
   const text = [
@@ -57,6 +63,7 @@ function statement(ref: string, open: string, lines: string[], close: string, ac
     `:62F:${close}`,
     "-}",
   ].join("\n");
+  sourceText.set(ref, text);
   const r = parseStatementFile(text);
   assert.ok(r.ok, JSON.stringify(r));
   return r.statements[0];
@@ -89,7 +96,7 @@ async function setup(tx: Executor, openingBalanceMinor = 100000) {
     ])
     .returning();
   const importIt = (s: ParsedStatement, bankAccountId = account.id) =>
-    m.importStatement(user, { bankAccountId, fileName: "test.mt940", rawText: "synthetic", statement: s }, tx);
+    m.importStatement(user, { bankAccountId, fileName: "test.mt940", rawText: sourceText.get(s.statementRef) ?? "", statement: s }, tx);
   return { m, user, account, other, importIt };
 }
 
@@ -527,5 +534,124 @@ test("an old cheque can be created again after its import was deleted and re-imp
     };
     await m.deleteImport(user, await createOldCheque(), tx);
     await createOldCheque(); // the first cheque is cancelled; its number must be usable again
+  });
+});
+
+// ---- Continuity and reconciliation (M5) ----
+
+// Creates the default record for every unmatched line of an import.
+async function createAll(m: Awaited<ReturnType<typeof load>>, user: { id: string; organizationId: string }, importId: string, tx: Executor, otherAccountId: string) {
+  for (const l of await m.listStatementLines(user.organizationId, importId, "unmatched", tx)) {
+    const input =
+      l.kind === "cheque" ? { lineId: l.id, type: "cheque" as const, chequeNumber: chequeSerial(l.chequeRef!), partyName: "P", notes: null }
+      : l.kind === "fee" || l.kind === "interest" ? { lineId: l.id, type: l.kind, description: l.description, notes: null }
+      : l.kind === "account_transfer" ? { lineId: l.id, type: "internal" as const, otherAccountId, notes: null }
+      : { lineId: l.id, type: l.direction === "credit" ? ("transfer_in" as const) : ("transfer_out" as const), partyName: "X", notes: null };
+    await m.createFromLine(user, input, tx);
+  }
+}
+
+test("bank balance on a date counts cheques on the day they cleared", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account } = await setup(tx);
+    await fee(m, user, account.id, tx, "2026-11-03");
+    const cheque = await m.createCheque(user, { bankAccountId: account.id, chequeNumber: "208001", partyName: "P", transactionDate: "2026-11-02", dueDate: null, amountMinor: 5000, notes: null }, tx);
+    await m.clearCheque(user, { transactionId: cheque.id, clearedDate: "2026-11-05" }, tx);
+    const voided = await m.createMovement(user, { type: "transfer_in", bankAccountId: account.id, transactionDate: "2026-11-04", amountMinor: 9999, partyName: "V", reference: null, notes: null }, {}, tx);
+    await m.voidTransaction(user, { transactionId: voided.status === "created" ? voided.ids[0] : "", reason: "x" }, tx);
+    const asOf = (d: string) => m.getBankBalanceAsOf(user.organizationId, account.id, d, tx);
+    assert.deepEqual([await asOf("2026-11-01"), await asOf("2026-11-03"), await asOf("2026-11-04"), await asOf("2026-11-05")], [100000, 99500, 99500, 94500]);
+  });
+});
+
+test("closing check explains the difference and is zero once every line is accounted for", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, other, account, importIt } = await setup(tx);
+    const { importId } = await importIt(M4());
+
+    // Nothing in the app yet: the whole difference is lines the app is missing.
+    let c = await m.closingCheck(user.organizationId, importId, tx);
+    assert.deepEqual([c.bankMinor, c.appMinor, c.differenceMinor], [83555, 100000, 16445]);
+    assert.deepEqual(c.bankOnly, { count: 7, totalMinor: -16445 });
+    assert.equal(c.unexplainedMinor, 0);
+    assert.equal(c.reconciled, false);
+
+    await createAll(m, user, importId, tx, other.id);
+    c = await m.closingCheck(user.organizationId, importId, tx);
+    assert.deepEqual([c.differenceMinor, c.unexplainedMinor, c.unmatchedInImport, c.reconciled], [0, 0, 0, true]);
+
+    // A payment in the app that the bank has not booked yet: explained, still reconciled.
+    await fee(m, user, account.id, tx, "2026-11-05", 700);
+    c = await m.closingCheck(user.organizationId, importId, tx);
+    assert.equal(c.differenceMinor, -700);
+    assert.equal(c.appOnly.totalMinor, -700);
+    assert.equal(c.appOnly.rows.length, 1);
+    assert.equal(c.reconciled, true);
+  });
+});
+
+test("timing: a match whose app date is after the closing date", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, other, importIt } = await setup(tx);
+    const a = await importIt(A());
+    await createAll(m, user, a.importId, tx, other.id);
+    const b = await importIt(B()); // closes 11-04; its only new line is the 20.00 booked 11-04
+    // The app recorded that transfer on 11-06, after the statement's closing date.
+    const r = await m.createMovement(user, { type: "transfer_in", bankAccountId: account.id, transactionDate: "2026-11-06", amountMinor: 2000, partyName: "GAMMA", reference: null, notes: null }, {}, tx);
+    const [line] = await m.listStatementLines(user.organizationId, b.importId, null, tx);
+    await m.confirmMatch(user, { lineId: line.id, transactionId: r.status === "created" ? r.ids[0] : "" }, tx);
+
+    const c = await m.closingCheck(user.organizationId, b.importId, tx);
+    assert.deepEqual([c.bankMinor, c.appMinor, c.differenceMinor], [96500, 94500, -2000]);
+    assert.deepEqual(c.timing, { count: 1, totalMinor: -2000 });
+    assert.equal(c.unexplainedMinor, 0);
+    assert.equal(c.reconciled, true);
+  });
+});
+
+test("a wrong opening balance or a gap shows as unexplained and stops 'reconciled until'", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, other, account, importIt } = await setup(tx);
+    const a = await importIt(A());
+    await createAll(m, user, a.importId, tx, other.id);
+    let [rec] = (await m.accountReconciliation(user.organizationId, tx)).filter((r) => r.accountId === account.id);
+    assert.equal(rec.reconciledUntil, "2026-11-03");
+    assert.equal(rec.coveredUntil, "2026-11-03");
+    assert.deepEqual(rec.gaps, []);
+
+    const c = await importIt(C()); // starts 11-06: 11-04 and 11-05 are not covered
+    assert.deepEqual(await m.importWarnings(user.organizationId, c.importId, tx), [{ code: "gap", from: "2026-11-03", to: "2026-11-06" }]);
+    assert.deepEqual(await m.importWarnings(user.organizationId, a.importId, tx), []);
+    [rec] = (await m.accountReconciliation(user.organizationId, tx)).filter((r) => r.accountId === account.id);
+    assert.deepEqual(rec.gaps, [{ from: "2026-11-03", to: "2026-11-06" }]);
+    assert.equal(rec.reconciledUntil, "2026-11-03");
+    assert.equal(rec.coveredUntil, "2026-11-07");
+    const check = await m.closingCheck(user.organizationId, c.importId, tx);
+    assert.notEqual(check.unexplainedMinor, 0); // the 11-04 line is on no imported statement
+    assert.equal(check.reconciled, false);
+  });
+});
+
+test("an opening balance that differs from the bank stays unexplained, so nothing is reconciled", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, other, account, importIt } = await setup(tx, 99999); // bank says 1000.00
+    const a = await importIt(A());
+    await createAll(m, user, a.importId, tx, other.id);
+    const c = await m.closingCheck(user.organizationId, a.importId, tx);
+    assert.deepEqual([c.differenceMinor, c.unexplainedMinor, c.reconciled], [-1, -1, false]);
+    const [rec] = (await m.accountReconciliation(user.organizationId, tx)).filter((r) => r.accountId === account.id);
+    assert.equal(rec.reconciledUntil, null);
+  });
+});
+
+test("an account's opening balance and date are locked once it has statements", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, importIt } = await setup(tx);
+    await importIt(A());
+    const { name, bankName, accountNumber, openingDate, openingBalanceMinor, receivesTransfers, issuesCheques } = account;
+    const base = { name, bankName, accountNumber, openingDate, openingBalanceMinor, receivesTransfers, issuesCheques };
+    await assert.rejects(m.updateBankAccount(user, account.id, { ...base, openingBalanceMinor: 1 }, tx), rejects("accountHasStatements"));
+    await assert.rejects(m.updateBankAccount(user, account.id, { ...base, openingDate: "2026-11-01" }, tx), rejects("accountHasStatements"));
+    await m.updateBankAccount(user, account.id, { ...base, name: "Renamed" }, tx);
   });
 });

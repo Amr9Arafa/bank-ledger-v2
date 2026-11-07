@@ -9,6 +9,7 @@ import { formatDay } from "@/lib/dates";
 import { formatEGP } from "@/lib/money";
 import { hasRole } from "@/server/auth/roles";
 import { getCurrentUser } from "@/server/auth/session";
+import { accountReconciliation } from "@/server/ledger/statementChecks";
 import { listStatementImports } from "@/server/ledger/statements";
 
 export default async function StatementsPage({ params }: PageProps<"/[locale]/statements">) {
@@ -17,7 +18,12 @@ export default async function StatementsPage({ params }: PageProps<"/[locale]/st
   const t = await getTranslations("statements");
 
   const user = await getCurrentUser();
-  const imports = await listStatementImports(user.organizationId);
+  const [imports, reconciliation] = await Promise.all([
+    listStatementImports(user.organizationId),
+    accountReconciliation(user.organizationId),
+  ]);
+  const ta = await getTranslations("statements.accounts");
+  const day = (d: string) => formatDay(d, locale);
   const canWrite = hasRole(user, "accountant");
   const isAdmin = hasRole(user, "admin");
   const timestamp = new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-GB", {
@@ -38,6 +44,40 @@ export default async function StatementsPage({ params }: PageProps<"/[locale]/st
           <StatementUploadForm />
         </section>
       )}
+
+      <section>
+        <h2 className="text-lg font-semibold">{ta("title")}</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {reconciliation.map((r) => (
+            <article key={r.accountId} className={`${panel} space-y-1 p-4 text-sm`}>
+              <h3 className="font-semibold"><bdi>{r.accountName}</bdi></h3>
+              <p className={r.reconciledUntil ? "font-medium text-credit" : "text-foreground-secondary"}>
+                {r.reconciledUntil ? ta("reconciledUntil", { date: day(r.reconciledUntil) }) : ta("notReconciled")}
+              </p>
+              <p className="text-foreground-secondary">
+                {r.coveredUntil ? ta("coveredUntil", { date: day(r.coveredUntil) }) : ta("noStatements")}
+              </p>
+              {r.gaps.map((g) => (
+                <p key={g.from} className="rounded bg-warning-tint px-2 py-0.5 text-warning">
+                  {ta("gap", { from: day(g.from), to: day(g.to) })}
+                </p>
+              ))}
+              {r.unmatchedLines > 0 && <p className="text-warning">{ta("unmatched", { count: r.unmatchedLines })}</p>}
+              {r.latest && (
+                <p className="text-xs tabular-nums text-foreground-secondary">
+                  <Link href={`/statements/${r.latest.importId}`} className="hover:underline">
+                    {ta("latest", {
+                      date: day(r.latest.closingDate),
+                      bank: formatEGP(r.latest.check.bankMinor, locale),
+                      app: formatEGP(r.latest.check.appMinor, locale),
+                    })}
+                  </Link>
+                </p>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
 
       <section>
         <h2 className="text-lg font-semibold">{t("list.title")}</h2>

@@ -53,7 +53,9 @@
     "chequeMeta": "{account}، شيك رقم {number}",
     "noUpcoming": "لا توجد شيكات في انتظار الصرف.",
     "allCheques": "كل الشيكات",
-    "allChequesCount": "كل الشيكات ({count})"
+    "allChequesCount": "كل الشيكات ({count})",
+    "reconciledUntil": "مطابق حتى {date}",
+    "notReconciled": "لم تتم المطابقة بعد"
   },
   "nav": {
     "home": "الرئيسية",
@@ -158,7 +160,8 @@
     "lineNotMatched": "هذا السطر غير مطابق.",
     "lineNotIgnored": "هذا السطر غير متجاهَل.",
     "notACandidate": "هذا السجل لا يناسب سطر الكشف (المبلغ أو الاتجاه أو التاريخ أو رقم الشيك)، أو أنه مطابق بالفعل.",
-    "typeNotForLine": "هذا النوع من السجلات لا يناسب اتجاه السطر."
+    "typeNotForLine": "هذا النوع من السجلات لا يناسب اتجاه السطر.",
+    "accountHasStatements": "لهذا الحساب كشوف مستوردة، لذلك لا يمكن تغيير رصيده الافتتاحي أو تاريخه. احذف الكشوف المستوردة أولاً."
   },
   "ledger": {
     "types": {
@@ -592,6 +595,33 @@
       "bulkInterest": "إنشاء {count, plural, one {سجل فوائد واحد} two {سجلي فوائد} few {# سجلات فوائد} many {# سجل فوائد} other {# سجل فوائد}}",
       "bulkNote": "سجل لكل سطر ليس له سجل محتمل في التطبيق. الأسطر التي قد تطابق شيئاً تُترك لك.",
       "keep": "إبقاء"
+    },
+    "accounts": {
+      "title": "الحسابات",
+      "reconciledUntil": "مطابق حتى {date}",
+      "notReconciled": "لم تتم المطابقة بعد",
+      "coveredUntil": "الكشوف حتى {date}",
+      "noStatements": "لم يتم استيراد كشوف",
+      "gap": "لا يوجد كشف للفترة {from} – {to}",
+      "unmatched": "{count, plural, one {سطر واحد للمراجعة} two {سطران للمراجعة} few {# أسطر للمراجعة} many {# سطراً للمراجعة} other {# سطر للمراجعة}}",
+      "latest": "في {date}: البنك {bank} · التطبيق {app}"
+    },
+    "checks": {
+      "title": "الفحوص",
+      "continuityOk": "يكمل الكشف السابق (أو الرصيد الافتتاحي) بلا فجوة.",
+      "closingTitle": "الرصيد الختامي في {date}",
+      "bank": "كشف البنك",
+      "app": "التطبيق (رصيد البنك)",
+      "difference": "الفرق",
+      "explainedBy": "يفسّره",
+      "bankOnly": "{count, plural, one {سطر واحد} two {سطران} few {# أسطر} many {# سطراً} other {# سطر}} في الكشف وليس في التطبيق",
+      "ignored": "{count, plural, one {سطر متجاهَل واحد} two {سطران متجاهَلان} few {# أسطر متجاهَلة} many {# سطراً متجاهَلاً} other {# سطر متجاهَل}}",
+      "appOnly": "{count, plural, one {سجل واحد} two {سجلان} few {# سجلات} many {# سجلاً} other {# سجل}} في التطبيق ولم يظهر في الكشف بعد",
+      "timing": "{count, plural, one {مطابقة واحدة} two {مطابقتان} few {# مطابقات} many {# مطابقة} other {# مطابقة}} بتاريخ على الجانب الآخر من {date}",
+      "unexplained": "غير مفسَّر",
+      "unexplainedNote": "لا يفسّره أي سطر: قد يكون هناك كشف ناقص، أو أن الرصيد الافتتاحي يختلف عن البنك.",
+      "reconciled": "مطابق بالكامل: كل الأسطر مفسَّرة.",
+      "notReconciled": "لم تكتمل المطابقة: {count, plural, one {سطر واحد} two {سطران} few {# أسطر} many {# سطراً} other {# سطر}} للمراجعة."
     }
   }
 }

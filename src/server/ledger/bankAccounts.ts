@@ -3,7 +3,7 @@
 import { and, eq, min, sql } from "drizzle-orm";
 import type { BankAccountInput } from "../../lib/validation.ts";
 import { db, type Executor } from "../db/client.ts";
-import { bankAccounts, transactions } from "../db/schema.ts";
+import { bankAccounts, statementImports, transactions } from "../db/schema.ts";
 import { writeAudit } from "./audit.ts";
 import { LedgerError, type LedgerUser } from "./types.ts";
 
@@ -57,6 +57,17 @@ export async function updateBankAccount(
       .where(eq(transactions.bankAccountId, accountId));
     if (first && input.openingDate > first) {
       throw new LedgerError("openingAfterTransactions", "openingDate");
+    }
+
+    // Statements were checked against this opening balance and date; changing either would
+    // silently invalidate every reconciliation. Delete the account's imports first.
+    if (input.openingBalanceMinor !== before.openingBalanceMinor || input.openingDate !== before.openingDate) {
+      const [imported] = await tx
+        .select({ id: statementImports.id })
+        .from(statementImports)
+        .where(eq(statementImports.bankAccountId, accountId))
+        .limit(1);
+      if (imported) throw new LedgerError("accountHasStatements", "openingBalanceMinor");
     }
 
     const [after] = await tx

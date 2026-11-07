@@ -13,6 +13,7 @@ import { hasRole } from "@/server/auth/roles";
 import { getCurrentUser } from "@/server/auth/session";
 import type { TransactionType } from "@/server/db/schema";
 import { getAccountBalancesForRequest } from "@/server/ledger/cached";
+import { accountReconciliation } from "@/server/ledger/statementChecks";
 import { listCheques } from "@/server/ledger/cheques";
 import {
   listRecentMovements,
@@ -37,11 +38,13 @@ export default async function DashboardPage({ params, searchParams }: PageProps<
   const view: MovementView = MOVEMENT_VIEWS.find((v) => v === requested) ?? "all";
 
   const user = await getCurrentUser();
-  const [accounts, outstanding, movements] = await Promise.all([
+  const [accounts, outstanding, movements, reconciliation] = await Promise.all([
     getAccountBalancesForRequest(user.organizationId),
     listCheques(user.organizationId, "issued"),
     listRecentMovements(user.organizationId, view),
+    accountReconciliation(user.organizationId),
   ]);
+  const reconciledUntil = new Map(reconciliation.map((r) => [r.accountId, r.reconciledUntil]));
   const sum = (pick: (a: (typeof accounts)[number]) => number) =>
     accounts.reduce((total, a) => total + pick(a), 0);
   const canWrite = hasRole(user, "accountant");
@@ -126,7 +129,7 @@ export default async function DashboardPage({ params, searchParams }: PageProps<
             className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3"
           >
             {accounts.map((account) => (
-              <AccountCard key={account.id} account={account} />
+              <AccountCard key={account.id} account={account} reconciledUntil={reconciledUntil.get(account.id) ?? null} />
             ))}
           </section>
 

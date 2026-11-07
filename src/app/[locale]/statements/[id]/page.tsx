@@ -23,7 +23,8 @@ import { getCurrentUser } from "@/server/auth/session";
 import type { TransactionType } from "@/server/db/schema";
 import { getActiveAccounts } from "@/server/ledger/accounts";
 import { getImportSuggestions } from "@/server/ledger/reconcile";
-import { getStatementImport, listStatementLines } from "@/server/ledger/statements";
+import { closingCheck, importWarnings } from "@/server/ledger/statementChecks";
+import { getStatementImport, type ImportWarning, listStatementLines } from "@/server/ledger/statements";
 
 // "suggested" is not stored: an unmatched line with a suggested record.
 const TABS = ["suggested", "unmatched", "matched", "created", "ignored", "before_start"] as const;
@@ -52,11 +53,29 @@ export default async function StatementImportPage({ params, searchParams }: Page
   if (!statement) notFound();
   const canWrite = hasRole(user, "accountant");
 
-  const [allLines, { suggestions, rows }, accounts] = await Promise.all([
+  const [allLines, { suggestions, rows }, accounts, check, warnings] = await Promise.all([
     listStatementLines(user.organizationId, id),
     getImportSuggestions(user.organizationId, id),
     getActiveAccounts(user.organizationId),
+    closingCheck(user.organizationId, id),
+    importWarnings(user.organizationId, id),
   ]);
+  const tk = await getTranslations("statements.checks");
+  const money = (minor: number) => formatEGP(minor, locale);
+  const warningText = (w: ImportWarning) => {
+    switch (w.code) {
+      case "startsAfterOpening":
+        return t("warnings.startsAfterOpening", { statementDate: formatDay(w.statementOpeningDate, locale), openingDate: formatDay(w.accountOpeningDate, locale) });
+      case "openingBalanceMismatch":
+        return t("warnings.openingBalanceMismatch", { date: formatDay(w.date, locale), statement: money(w.statementMinor), app: money(w.appMinor) });
+      case "gap":
+        return t("warnings.gap", { from: formatDay(w.from, locale), to: formatDay(w.to, locale) });
+      case "previousBalanceMismatch":
+        return t("warnings.previousBalanceMismatch", { date: formatDay(w.date, locale), statement: money(w.statementMinor), previous: money(w.previousMinor) });
+      case "nothingNew":
+        return t("warnings.nothingNew");
+    }
+  };
   const otherAccounts = accounts.filter((a) => a.id !== statement.bankAccountId).map((a) => ({ id: a.id, name: a.name }));
   const canIssueCheques = accounts.find((a) => a.id === statement.bankAccountId)?.issuesCheques ?? false;
   const lines = allLines.map((l) => ({
@@ -134,6 +153,91 @@ export default async function StatementImportPage({ params, searchParams }: Page
           </div>
         </dl>
       </div>
+
+      <section className={`${panel} space-y-3 p-4 text-sm`} aria-labelledby="checks-title">
+        <h2 id="checks-title" className="text-base font-semibold">{tk("title")}</h2>
+        {warnings.length === 0 ? (
+          <p className="text-credit">{tk("continuityOk")}</p>
+        ) : (
+          <ul className="space-y-1">
+            {warnings.map((w) => (
+              <li key={w.code} className="rounded bg-warning-tint px-2 py-1 text-warning">{warningText(w)}</li>
+            ))}
+          </ul>
+        )}
+
+        <div>
+          <h3 className="font-medium">{tk("closingTitle", { date: day(check.date) })}</h3>
+          <dl className="mt-1 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-0.5 tabular-nums">
+            <dt className="text-foreground-secondary">{tk("bank")}</dt>
+            <dd className="text-end">{money(check.bankMinor)}</dd>
+            <dt className="text-foreground-secondary">{tk("app")}</dt>
+            <dd className="text-end">{money(check.appMinor)}</dd>
+            <dt className="font-medium">{tk("difference")}</dt>
+            <dd className={`text-end font-medium ${check.differenceMinor === 0 ? "text-credit" : "text-warning"}`}>
+              {money(check.differenceMinor)}
+            </dd>
+          </dl>
+          {check.differenceMinor !== 0 && (
+            <div className="mt-2">
+              <p className="text-foreground-secondary">{tk("explainedBy")}</p>
+              <dl className="mt-1 grid max-w-xl grid-cols-[1fr_auto] gap-x-6 gap-y-0.5 tabular-nums">
+                {check.bankOnly.count > 0 && (
+                  <>
+                    <dt>{tk("bankOnly", { count: check.bankOnly.count })}</dt>
+                    <dd className="text-end">{money(-check.bankOnly.totalMinor)}</dd>
+                  </>
+                )}
+                {check.ignored.count > 0 && (
+                  <>
+                    <dt>{tk("ignored", { count: check.ignored.count })}</dt>
+                    <dd className="text-end">{money(-check.ignored.totalMinor)}</dd>
+                  </>
+                )}
+                {check.appOnly.rows.length > 0 && (
+                  <>
+                    <dt>{tk("appOnly", { count: check.appOnly.rows.length })}</dt>
+                    <dd className="text-end">{money(check.appOnly.totalMinor)}</dd>
+                  </>
+                )}
+                {check.timing.count > 0 && (
+                  <>
+                    <dt>{tk("timing", { count: check.timing.count, date: day(check.date) })}</dt>
+                    <dd className="text-end">{money(check.timing.totalMinor)}</dd>
+                  </>
+                )}
+                {check.unexplainedMinor !== 0 && (
+                  <>
+                    <dt className="font-medium text-debit">{tk("unexplained")}</dt>
+                    <dd className="text-end font-medium text-debit">{money(check.unexplainedMinor)}</dd>
+                  </>
+                )}
+              </dl>
+              {check.unexplainedMinor !== 0 && <p className="mt-1 text-xs text-debit">{tk("unexplainedNote")}</p>}
+              {check.appOnly.rows.length > 0 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-navy">{tk("appOnly", { count: check.appOnly.rows.length })}</summary>
+                  <ul className="mt-1 space-y-0.5 text-xs">
+                    {check.appOnly.rows.map((r) => (
+                      <li key={r.id} className="flex flex-wrap gap-x-2 tabular-nums">
+                        <span>{day(r.date)}</span>
+                        <span>{typeLabel(r.type)}{r.chequeNumber && <> #<bdi>{r.chequeNumber}</bdi></>}</span>
+                        <bdi>{r.partyName ?? r.description ?? ""}</bdi>
+                        <span className={r.signedMinor >= 0 ? "text-credit" : "text-debit"}>{money(r.signedMinor)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+        </div>
+        {check.reconciled ? (
+          <p className="font-medium text-credit">{tk("reconciled")}</p>
+        ) : (
+          check.unmatchedInImport > 0 && <p className="text-warning">{tk("notReconciled", { count: check.unmatchedInImport })}</p>
+        )}
+      </section>
 
       {canWrite && uniqueCount + feeCount + interestCount > 0 && (
         <div className="flex flex-wrap items-start gap-6 text-sm">
