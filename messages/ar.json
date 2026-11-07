@@ -143,7 +143,15 @@
     "entryNotFound": "هذا الإدخال غير موجود.",
     "entryNotPending": "تمت الموافقة على هذا الإدخال أو رفضه بالفعل.",
     "invalidTelegramId": "معرّف تيليجرام أرقام فقط.",
-    "telegramIdTaken": "معرّف تيليجرام هذا مرتبط بمستخدم آخر."
+    "telegramIdTaken": "معرّف تيليجرام هذا مرتبط بمستخدم آخر.",
+    "matchedToStatement": "هذا السجل مطابق لسطر في كشف حساب. ألغِ المطابقة من صفحة الكشوف أولاً.",
+    "statementBankUnsupported": "كشوف هذا البنك غير مدعومة بعد.",
+    "statementCurrency": "يمكن استيراد الكشوف بالجنيه المصري فقط.",
+    "statementAccountMismatch": "هذا الكشف يخص رقم حساب آخر.",
+    "statementAlreadyImported": "تم استيراد هذا الكشف من قبل.",
+    "importNotFound": "لم يتم العثور على هذا الكشف المستورد.",
+    "notLatestImport": "يمكن حذف أحدث كشف مستورد للحساب فقط. احذف الأحدث أولاً.",
+    "importHasMatches": "في هذا الكشف أسطر مطابقة. ألغِ مطابقتها أولاً."
   },
   "ledger": {
     "types": {
@@ -254,7 +262,9 @@
       "archive": "أرشفة",
       "unarchive": "إلغاء الأرشفة",
       "role": "تغيير الدور",
-      "telegram": "تغيير ربط تيليجرام"
+      "telegram": "تغيير ربط تيليجرام",
+      "statement_import": "استيراد كشف",
+      "statement_delete": "حذف كشف مستورد"
     },
     "telegramId": "معرّف تيليجرام",
     "telegramIdPlaceholder": "غير مرتبط",

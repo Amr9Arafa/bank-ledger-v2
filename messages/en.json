@@ -143,7 +143,15 @@
     "entryNotFound": "This inbox entry was not found.",
     "entryNotPending": "This entry was already approved or rejected.",
     "invalidTelegramId": "A Telegram ID is digits only.",
-    "telegramIdTaken": "This Telegram ID is already linked to another user."
+    "telegramIdTaken": "This Telegram ID is already linked to another user.",
+    "matchedToStatement": "This record is matched to a bank statement line. Unmatch it on the Statements page first.",
+    "statementBankUnsupported": "This bank's statements are not supported yet.",
+    "statementCurrency": "Only EGP statements can be imported.",
+    "statementAccountMismatch": "This statement belongs to a different account number.",
+    "statementAlreadyImported": "This statement was already imported.",
+    "importNotFound": "This statement import was not found.",
+    "notLatestImport": "Only the newest import of an account can be deleted. Delete the newer ones first.",
+    "importHasMatches": "This import has matched lines. Unmatch them first."
   },
   "ledger": {
     "types": {
@@ -254,7 +262,9 @@
       "archive": "Archived",
       "unarchive": "Unarchived",
       "role": "Role changed",
-      "telegram": "Telegram link changed"
+      "telegram": "Telegram link changed",
+      "statement_import": "Statement imported",
+      "statement_delete": "Statement import deleted"
     },
     "telegramId": "Telegram ID",
     "telegramIdPlaceholder": "Not linked",

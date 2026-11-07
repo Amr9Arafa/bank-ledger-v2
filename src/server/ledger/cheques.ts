@@ -10,6 +10,7 @@ import type {
 import { db, type Executor, isUniqueViolation } from "../db/client.ts";
 import { bankAccounts, transactions } from "../db/schema.ts";
 import { writeAudit } from "./audit.ts";
+import { assertNotMatched } from "./matchGuard.ts";
 import { LedgerError, type LedgerUser } from "./types.ts";
 
 export async function createCheque(
@@ -105,6 +106,8 @@ async function changeChequeStatus(
     if (before.status !== from) {
       throw new LedgerError(from === "issued" ? "notIssued" : "notCleared");
     }
+    // Clearing is allowed (confirming a match clears the cheque); undoing is not while matched.
+    if (action !== "clear") await assertNotMatched(tx, [before.id]);
     if (change.clearedDate && change.clearedDate < before.transactionDate) {
       throw new LedgerError("clearedBeforeIssue", "clearedDate");
     }

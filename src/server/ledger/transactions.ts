@@ -8,6 +8,7 @@ import type {
 import { db, type Executor } from "../db/client.ts";
 import { bankAccounts, transactions } from "../db/schema.ts";
 import { writeAudit } from "./audit.ts";
+import { assertNotMatched } from "./matchGuard.ts";
 import { LedgerError, type LedgerUser } from "./types.ts";
 
 export type CreateResult =
@@ -181,6 +182,11 @@ export async function voidTransaction(
             ),
           )
       : [target];
+    // Either half of an internal pair being matched blocks voiding the pair.
+    await assertNotMatched(
+      tx,
+      before.map((r) => r.id),
+    );
 
     // Only active rows change: a concurrent second void updates nothing.
     const after = await tx

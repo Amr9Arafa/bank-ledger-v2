@@ -14,7 +14,10 @@ export type AuditAction =
   | "archive"
   | "unarchive"
   | "role"
-  | "telegram";
+  | "telegram"
+  // Bank statements: target is the bank account; before/after hold an import summary.
+  | "statement_import"
+  | "statement_delete";
 
 type AuditEntry = {
   action: AuditAction;

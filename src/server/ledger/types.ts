@@ -22,7 +22,15 @@ export type LedgerErrorCode =
   | "openingAfterTransactions"
   | "hasOutstandingCheques"
   | "entryNotFound"
-  | "entryNotPending";
+  | "entryNotPending"
+  | "matchedToStatement"
+  | "statementBankUnsupported"
+  | "statementCurrency"
+  | "statementAccountMismatch"
+  | "statementAlreadyImported"
+  | "importNotFound"
+  | "notLatestImport"
+  | "importHasMatches";
 
 // A business rule was broken. Thrown inside the DB transaction, so nothing is saved.
 export class LedgerError extends Error {
