@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db, type Executor } from "../db/client.ts";
+import { isCredit } from "./sql.ts";
 
 export type AccountBalance = {
   id: string;
@@ -51,12 +52,12 @@ export async function getAccountBalances(
       a.opening_date::text,
       a.archived_at is not null as archived,
       a.opening_balance_minor + coalesce(sum(
-        case when t.type in ('transfer_in', 'deposit', 'internal_in')
+        case when ${isCredit}
              then t.amount_minor else -t.amount_minor end
       ) filter (where t.status in ('active', 'issued', 'cleared')), 0)
         as book_balance_minor,
       a.opening_balance_minor + coalesce(sum(
-        case when t.type in ('transfer_in', 'deposit', 'internal_in')
+        case when ${isCredit}
              then t.amount_minor else -t.amount_minor end
       ) filter (where t.status in ('active', 'cleared')), 0)
         as bank_balance_minor,

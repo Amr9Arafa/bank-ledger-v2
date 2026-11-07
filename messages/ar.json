@@ -149,6 +149,7 @@
     "types": {
       "transfer_in": "تحويل وارد",
       "deposit": "إيداع",
+      "interest": "فوائد بنكية",
       "fee": "مصروفات بنكية",
       "internal_in": "تحويل داخلي وارد",
       "internal_out": "تحويل داخلي صادر",

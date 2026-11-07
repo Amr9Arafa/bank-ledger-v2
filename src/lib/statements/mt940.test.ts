@@ -177,6 +177,34 @@ test("lineKey is stable across files and distinct for identical lines", () => {
   assert.equal(again[0].lineKey, a.lineKey);
 });
 
+test("two identical fees in one statement are both kept, and dedupe across overlapping statements", () => {
+  const fee = [":61:2611051105DP60,00NTRFNONREF//001OPDB0000000X", ":86:Outgoing ACH transfer charges via internet banking- TO-Test Payee"];
+  const first = parseOne(
+    [":20:A", ":25:1", ":60F:C261104EGP1000,00", ...fee, ...fee, ":62F:C261105EGP880,00"].join("\n"),
+  );
+  assert.equal(first.lines.length, 2);
+  const [k1, k2] = first.lines.map((l) => l.lineKey);
+  assert.notEqual(k1, k2);
+  assert.equal(k1.split("#")[0], k2.split("#")[0]); // same content, different occurrence
+
+  // A later statement that overlaps 11-05 repeats both fees, then adds a new line.
+  const overlap = parseOne(
+    [
+      ":20:B",
+      ":25:1",
+      ":60F:C261104EGP1000,00",
+      ...fee,
+      ...fee,
+      ":61:2611061106CP5,00NTRFNONREF//NEW",
+      ":62F:C261106EGP885,00",
+    ].join("\n"),
+  );
+  const keys = overlap.lines.map((l) => l.lineKey);
+  assert.deepEqual(keys.slice(0, 2), [k1, k2]);
+  const alreadyImported = new Set([k1, k2]);
+  assert.deepEqual(overlap.lines.filter((l) => !alreadyImported.has(l.lineKey)).map((l) => l.bankRef), ["NEW"]);
+});
+
 test("rejects files whose lines do not add up", () => {
   const r = parseMt940(FIXTURE.replace(":62F:C261107EGP985,75", ":62F:C261107EGP985,76"));
   assert.ok(!r.ok);

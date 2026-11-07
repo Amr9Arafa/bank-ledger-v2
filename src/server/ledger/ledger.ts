@@ -1,6 +1,7 @@
 import { sql, type SQL } from "drizzle-orm";
 import type { LedgerFilters } from "../../lib/validation.ts";
 import { db, type Executor } from "../db/client.ts";
+import { isCredit } from "./sql.ts";
 
 export type LedgerRow = {
   id: string;
@@ -71,7 +72,7 @@ export async function getAccountLedger(
     with signed as (
       select
         t.*,
-        case when t.type in ('transfer_in', 'deposit', 'internal_in')
+        case when ${isCredit}
              then t.amount_minor else -t.amount_minor end as signed_amount_minor
       from transactions t
       where t.organization_id = ${organizationId} and t.bank_account_id = ${accountId}
@@ -149,9 +150,9 @@ export async function listRecentMovements(
 ): Promise<RecentMovement[]> {
   const viewFilter =
     view === "in"
-      ? sql`and t.type in ('transfer_in', 'deposit', 'internal_in')`
+      ? sql`and ${isCredit}`
       : view === "out"
-        ? sql`and t.type in ('transfer_out', 'cheque', 'fee', 'internal_out')`
+        ? sql`and not ${isCredit}`
         : view === "cheques"
           ? sql`and t.type = 'cheque'`
           : sql``;
@@ -172,7 +173,7 @@ export async function listRecentMovements(
   }>(sql`
     select
       t.id, a.id as account_id, a.name as account_name, t.type, t.status,
-      case when t.type in ('transfer_in', 'deposit', 'internal_in')
+      case when ${isCredit}
            then t.amount_minor else -t.amount_minor end as signed_amount_minor,
       t.party_name, t.description, t.reference, t.cheque_number,
       t.transaction_date::text, other.name as counterpart_name

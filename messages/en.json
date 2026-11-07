@@ -149,6 +149,7 @@
     "types": {
       "transfer_in": "Incoming transfer",
       "deposit": "Deposit",
+      "interest": "Bank interest",
       "fee": "Bank fee",
       "internal_in": "Internal transfer in",
       "internal_out": "Internal transfer out",

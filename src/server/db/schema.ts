@@ -5,6 +5,7 @@ import {
   check,
   date,
   index,
+  integer,
   jsonb,
   pgSchema,
   pgTable,
@@ -33,7 +34,8 @@ export const ROLES = ["admin", "accountant", "viewer"] as const;
 export const LANGUAGES = ["ar", "en"] as const;
 // "deposit" is no longer offered when entering movements (record it as transfer_in with
 // a note), but stays valid so existing deposit rows keep their history.
-export const CREDIT_TYPES = ["transfer_in", "deposit", "internal_in"] as const;
+// "interest" is credited by the bank (daily on NBE) and recorded from bank statements.
+export const CREDIT_TYPES = ["transfer_in", "deposit", "internal_in", "interest"] as const;
 export const DEBIT_TYPES = ["transfer_out", "cheque", "fee", "internal_out"] as const;
 export const TRANSACTION_TYPES = [...CREDIT_TYPES, ...DEBIT_TYPES] as const;
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];
@@ -146,7 +148,7 @@ export const transactions = pgTable(
   (t) => [
     check(
       "transactions_type_check",
-      sql`${t.type} in ('transfer_in', 'deposit', 'internal_in', 'transfer_out', 'cheque', 'fee', 'internal_out')`,
+      sql`${t.type} in ('transfer_in', 'deposit', 'internal_in', 'interest', 'transfer_out', 'cheque', 'fee', 'internal_out')`,
     ),
     check("transactions_amount_positive", sql`${t.amountMinor} > 0`),
     // Cheques must have a number; only cheques have one.
@@ -264,4 +266,162 @@ export const pendingEntries = pgTable(
     ),
     index("pending_entries_inbox").on(t.organizationId, t.status, t.createdAt),
   ],
+).enableRLS();
+
+// ---- Bank statements and reconciliation ----
+// Statement rows are evidence, not financial records: deleting an import hard-deletes its
+// lines and matches, after the ledger has reversed every change the import made.
+
+export const STATEMENT_BANKS = ["nbe", "cib"] as const;
+export const STATEMENT_FORMATS = ["mt940", "csv"] as const;
+export const STATEMENT_DIRECTIONS = ["credit", "debit"] as const;
+export const STATEMENT_LINE_KINDS = [
+  "incoming_transfer",
+  "outgoing_transfer",
+  "account_transfer",
+  "cheque",
+  "fee",
+  "interest",
+  "other",
+] as const;
+// "suggested" is not stored: suggestions are computed when the page loads.
+export const STATEMENT_LINE_STATUSES = [
+  "unmatched",
+  "matched",
+  "created",
+  "ignored",
+  "before_start",
+] as const;
+export const STATEMENT_MATCH_ORIGINS = ["matched", "created"] as const;
+
+// One statement (one :20: ... :62F: block) for one account.
+export const statementImports = pgTable(
+  "statement_imports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    bankAccountId: uuid("bank_account_id")
+      .notNull()
+      .references(() => bankAccounts.id),
+    bank: text("bank", { enum: STATEMENT_BANKS }).notNull(),
+    format: text("format", { enum: STATEMENT_FORMATS }).notNull(),
+    fileName: text("file_name").notNull(),
+    // The bank's statement reference (MT940 :20:).
+    statementRef: text("statement_ref").notNull(),
+    // The uploaded file as text, kept as evidence and to re-read it if a parser is fixed.
+    rawText: text("raw_text").notNull(),
+    // Balance at the end of opening_date (:60F:) and of closing_date (:62F:).
+    openingDate: day("opening_date").notNull(),
+    openingBalanceMinor: minor("opening_balance_minor").notNull(),
+    closingDate: day("closing_date").notNull(),
+    closingBalanceMinor: minor("closing_balance_minor").notNull(),
+    // Lines in the file, and how many were skipped because an earlier import has them.
+    lineCount: integer("line_count").notNull(),
+    skippedLineCount: integer("skipped_line_count").notNull(),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check("statement_imports_bank_check", sql`${t.bank} in ('nbe', 'cib')`),
+    check("statement_imports_format_check", sql`${t.format} in ('mt940', 'csv')`),
+    check("statement_imports_period_check", sql`${t.closingDate} >= ${t.openingDate}`),
+    check(
+      "statement_imports_counts_check",
+      sql`${t.lineCount} >= 0 and ${t.skippedLineCount} between 0 and ${t.lineCount}`,
+    ),
+    uniqueIndex("statement_imports_ref_per_account").on(t.bankAccountId, t.statementRef),
+    index("statement_imports_account_period").on(t.bankAccountId, t.closingDate),
+  ],
+).enableRLS();
+
+export const statementLines = pgTable(
+  "statement_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    importId: uuid("import_id")
+      .notNull()
+      .references(() => statementImports.id, { onDelete: "cascade" }),
+    bankAccountId: uuid("bank_account_id")
+      .notNull()
+      .references(() => bankAccounts.id),
+    lineNo: integer("line_no").notNull(),
+    // Entry date: the date the bank booked it, which drives the statement balance.
+    bookingDate: day("booking_date").notNull(),
+    valueDate: day("value_date").notNull(),
+    direction: text("direction", { enum: STATEMENT_DIRECTIONS }).notNull(),
+    amountMinor: minor("amount_minor").notNull(),
+    typeCode: text("type_code").notNull(),
+    customerRef: text("customer_ref").notNull(),
+    // Not unique: a transfer and its fee can share one.
+    bankRef: text("bank_ref").notNull(),
+    description: text("description").notNull(),
+    paymentRef: text("payment_ref"),
+    kind: text("kind", { enum: STATEMENT_LINE_KINDS }).notNull(),
+    counterparty: text("counterparty"),
+    chequeRef: text("cheque_ref"),
+    // Same line in two overlapping statements -> same key; it is stored only once.
+    lineKey: text("line_key").notNull(),
+    status: text("status", { enum: STATEMENT_LINE_STATUSES }).notNull(),
+    ignoreReason: text("ignore_reason"),
+    createdAt: createdAt(),
+    updatedBy: uuid("updated_by").references(() => users.id),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check("statement_lines_direction_check", sql`${t.direction} in ('credit', 'debit')`),
+    check("statement_lines_amount_positive", sql`${t.amountMinor} > 0`),
+    check(
+      "statement_lines_kind_check",
+      sql`${t.kind} in ('incoming_transfer', 'outgoing_transfer', 'account_transfer', 'cheque', 'fee', 'interest', 'other')`,
+    ),
+    check(
+      "statement_lines_status_check",
+      sql`${t.status} in ('unmatched', 'matched', 'created', 'ignored', 'before_start')`,
+    ),
+    // Ignored lines always say why; nothing else has a reason.
+    check(
+      "statement_lines_ignore_reason_check",
+      sql`(${t.status} = 'ignored') = (${t.ignoreReason} is not null)`,
+    ),
+    uniqueIndex("statement_lines_key_per_account").on(t.bankAccountId, t.lineKey),
+    uniqueIndex("statement_lines_import_line").on(t.importId, t.lineNo),
+    index("statement_lines_account_status").on(t.bankAccountId, t.status, t.bookingDate),
+  ],
+).enableRLS();
+
+// One statement line <-> one ledger row. An internal transfer is two ledger rows (one per
+// account), so each account's line matches its own row and 1:1 still holds.
+// No cascade from lines: a matched line cannot be deleted until its match is reversed.
+export const statementMatches = pgTable(
+  "statement_matches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    statementLineId: uuid("statement_line_id")
+      .notNull()
+      .unique()
+      .references(() => statementLines.id),
+    transactionId: uuid("transaction_id")
+      .notNull()
+      .unique()
+      .references(() => transactions.id),
+    // "created": the ledger row was created from this line (undo voids/cancels it).
+    origin: text("origin", { enum: STATEMENT_MATCH_ORIGINS }).notNull(),
+    // True when confirming this match cleared an issued cheque (undo un-clears it).
+    clearedCheque: boolean("cleared_cheque").notNull().default(false),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [check("statement_matches_origin_check", sql`${t.origin} in ('matched', 'created')`)],
 ).enableRLS();
