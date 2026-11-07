@@ -10,8 +10,10 @@ import {
   statementImports,
   statementLines,
   statementMatches,
+  transactions,
 } from "../db/schema.ts";
 import { writeAudit } from "./audit.ts";
+import { matchedLineIds, undoMatch } from "./reconcile.ts";
 import { LedgerError, type LedgerUser } from "./types.ts";
 
 // Not errors: the import is allowed, but the user should look before confirming.
@@ -248,7 +250,8 @@ const summary = (p: Omit<ImportPreview, "bankAccountId" | "accountName" | "warni
 });
 
 // Only the newest import of an account can be deleted, so the chain of statements stays
-// continuous. Lines go with it (cascade); matches must be undone first (M3 adds the undo).
+// continuous. Matches are undone first (cheques it cleared are un-cleared), then the lines
+// go with the import (cascade). The ledger ends up exactly as before the import.
 export async function deleteImport(user: LedgerUser, importId: string, database: Executor = db) {
   return database.transaction(async (tx) => {
     const [target] = await tx
@@ -266,13 +269,8 @@ export async function deleteImport(user: LedgerUser, importId: string, database:
       .limit(1);
     if (latest.id !== target.id) throw new LedgerError("notLatestImport");
 
-    const [matched] = await tx
-      .select({ id: statementMatches.id })
-      .from(statementMatches)
-      .innerJoin(statementLines, eq(statementLines.id, statementMatches.statementLineId))
-      .where(eq(statementLines.importId, target.id))
-      .limit(1);
-    if (matched) throw new LedgerError("importHasMatches");
+    // Reverse every match first (un-clearing cheques it cleared), then the lines can go.
+    for (const lineId of await matchedLineIds(tx, target.id)) await undoMatch(tx, user, lineId);
 
     await tx.delete(statementImports).where(eq(statementImports.id, target.id));
     await writeAudit(tx, user, {
@@ -361,8 +359,21 @@ export async function listStatementLines(
       chequeRef: statementLines.chequeRef,
       status: statementLines.status,
       ignoreReason: statementLines.ignoreReason,
+      // The ledger row this line is matched to, if any.
+      matchOrigin: statementMatches.origin,
+      matchClearedCheque: statementMatches.clearedCheque,
+      matchedId: transactions.id,
+      matchedType: transactions.type,
+      matchedStatus: transactions.status,
+      matchedDate: transactions.transactionDate,
+      matchedClearedDate: transactions.clearedDate,
+      matchedParty: transactions.partyName,
+      matchedDescription: transactions.description,
+      matchedChequeNumber: transactions.chequeNumber,
     })
     .from(statementLines)
+    .leftJoin(statementMatches, eq(statementMatches.statementLineId, statementLines.id))
+    .leftJoin(transactions, eq(transactions.id, statementMatches.transactionId))
     .where(
       and(
         eq(statementLines.organizationId, organizationId),

@@ -152,7 +152,12 @@
     "statementAlreadyImported": "This statement was already imported.",
     "importNotFound": "This statement import was not found.",
     "notLatestImport": "Only the newest import of an account can be deleted. Delete the newer ones first.",
-    "importHasMatches": "This import has matched lines. Unmatch them first."
+    "importHasMatches": "This import has matched lines. Unmatch them first.",
+    "lineNotFound": "This statement line was not found.",
+    "lineNotUnmatched": "This line is already matched or ignored.",
+    "lineNotMatched": "This line is not matched.",
+    "lineNotIgnored": "This line is not ignored.",
+    "notACandidate": "This record does not fit the statement line (amount, direction, date or cheque number), or it is already matched."
   },
   "ledger": {
     "types": {
@@ -265,7 +270,11 @@
       "role": "Role changed",
       "telegram": "Telegram link changed",
       "statement_import": "Statement imported",
-      "statement_delete": "Statement import deleted"
+      "statement_delete": "Statement import deleted",
+      "statement_match": "Matched to statement",
+      "statement_unmatch": "Statement match undone",
+      "statement_ignore": "Statement line ignored",
+      "statement_unignore": "Statement line restored"
     },
     "telegramId": "Telegram ID",
     "telegramIdPlaceholder": "Not linked",
@@ -518,11 +527,38 @@
       "other": "Other"
     },
     "statuses": {
+      "suggested": "Suggested",
       "unmatched": "Unmatched",
       "matched": "Matched",
       "created": "Created",
       "ignored": "Ignored",
       "before_start": "Before start date"
+    },
+    "match": {
+      "suggested": "Suggested",
+      "matchedTo": "Matched to",
+      "suggestion": "Suggested match",
+      "candidates": "Possible records",
+      "confirm": "Confirm",
+      "pick": "Match",
+      "otherCandidates": "{count, plural, one {# other possible record} other {# other possible records}}",
+      "dayDiff": "{days, plural, =0 {same day} one {# day apart} other {# days apart}}",
+      "chequeNumberMatch": "cheque number matches",
+      "clearsCheque": "confirming clears this cheque",
+      "clearedByMatch": "cleared by this match",
+      "noCandidate": "No record in the app fits this line.",
+      "unmatch": "Unmatch",
+      "confirmUnmatch": "Unmatch",
+      "unmatchNote": "Removes the match. A cheque cleared by it goes back to outstanding.",
+      "ignore": "Ignore",
+      "ignoreReason": "Reason",
+      "confirmIgnore": "Ignore line",
+      "unignore": "Restore",
+      "confirmUnignore": "Restore line",
+      "keep": "Keep",
+      "confirmUnique": "Confirm {count, plural, one {# sure match} other {# sure matches}}",
+      "confirmUniqueNote": "Lines with exactly one possible record that no other line wants.",
+      "confirmedCount": "{count, plural, =0 {Nothing to confirm.} one {# match confirmed.} other {# matches confirmed.}}"
     }
   }
 }

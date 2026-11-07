@@ -152,7 +152,12 @@
     "statementAlreadyImported": "تم استيراد هذا الكشف من قبل.",
     "importNotFound": "لم يتم العثور على هذا الكشف المستورد.",
     "notLatestImport": "يمكن حذف أحدث كشف مستورد للحساب فقط. احذف الأحدث أولاً.",
-    "importHasMatches": "في هذا الكشف أسطر مطابقة. ألغِ مطابقتها أولاً."
+    "importHasMatches": "في هذا الكشف أسطر مطابقة. ألغِ مطابقتها أولاً.",
+    "lineNotFound": "لم يتم العثور على سطر الكشف.",
+    "lineNotUnmatched": "هذا السطر مطابق أو متجاهَل بالفعل.",
+    "lineNotMatched": "هذا السطر غير مطابق.",
+    "lineNotIgnored": "هذا السطر غير متجاهَل.",
+    "notACandidate": "هذا السجل لا يناسب سطر الكشف (المبلغ أو الاتجاه أو التاريخ أو رقم الشيك)، أو أنه مطابق بالفعل."
   },
   "ledger": {
     "types": {
@@ -265,7 +270,11 @@
       "role": "تغيير الدور",
       "telegram": "تغيير ربط تيليجرام",
       "statement_import": "استيراد كشف",
-      "statement_delete": "حذف كشف مستورد"
+      "statement_delete": "حذف كشف مستورد",
+      "statement_match": "مطابقة مع كشف",
+      "statement_unmatch": "إلغاء مطابقة كشف",
+      "statement_ignore": "تجاهل سطر كشف",
+      "statement_unignore": "استعادة سطر كشف"
     },
     "telegramId": "معرّف تيليجرام",
     "telegramIdPlaceholder": "غير مرتبط",
@@ -518,11 +527,38 @@
       "other": "أخرى"
     },
     "statuses": {
+      "suggested": "مقترح",
       "unmatched": "غير مطابق",
       "matched": "مطابق",
       "created": "تم إنشاؤه",
       "ignored": "متجاهَل",
       "before_start": "قبل تاريخ البدء"
+    },
+    "match": {
+      "suggested": "مقترح",
+      "matchedTo": "مطابق مع",
+      "suggestion": "مطابقة مقترحة",
+      "candidates": "سجلات محتملة",
+      "confirm": "تأكيد",
+      "pick": "مطابقة",
+      "otherCandidates": "{count, plural, one {سجل محتمل آخر} two {سجلان محتملان آخران} few {# سجلات محتملة أخرى} many {# سجلاً محتملاً آخر} other {# سجل محتمل آخر}}",
+      "dayDiff": "{days, plural, =0 {نفس اليوم} one {فرق يوم} two {فرق يومين} few {فرق # أيام} many {فرق # يوماً} other {فرق # يوم}}",
+      "chequeNumberMatch": "رقم الشيك مطابق",
+      "clearsCheque": "التأكيد يسجّل صرف هذا الشيك",
+      "clearedByMatch": "صُرف بهذه المطابقة",
+      "noCandidate": "لا يوجد سجل في التطبيق يناسب هذا السطر.",
+      "unmatch": "إلغاء المطابقة",
+      "confirmUnmatch": "إلغاء المطابقة",
+      "unmatchNote": "يحذف المطابقة. الشيك الذي صُرف بها يعود إلى غير مصروف.",
+      "ignore": "تجاهل",
+      "ignoreReason": "السبب",
+      "confirmIgnore": "تجاهل السطر",
+      "unignore": "استعادة",
+      "confirmUnignore": "استعادة السطر",
+      "keep": "إبقاء",
+      "confirmUnique": "تأكيد {count, plural, one {مطابقة مؤكدة واحدة} two {مطابقتين مؤكدتين} few {# مطابقات مؤكدة} many {# مطابقة مؤكدة} other {# مطابقة مؤكدة}}",
+      "confirmUniqueNote": "الأسطر التي لها سجل محتمل واحد فقط لا يريده سطر آخر.",
+      "confirmedCount": "{count, plural, =0 {لا شيء للتأكيد.} one {تم تأكيد مطابقة واحدة.} two {تم تأكيد مطابقتين.} few {تم تأكيد # مطابقات.} many {تم تأكيد # مطابقة.} other {تم تأكيد # مطابقة.}}"
     }
   }
 }

@@ -17,7 +17,12 @@ export type AuditAction =
   | "telegram"
   // Bank statements: target is the bank account; before/after hold an import summary.
   | "statement_import"
-  | "statement_delete";
+  | "statement_delete"
+  // Matching: target is the ledger row (match/unmatch) or the account (ignore/unignore).
+  | "statement_match"
+  | "statement_unmatch"
+  | "statement_ignore"
+  | "statement_unignore";
 
 type AuditEntry = {
   action: AuditAction;

@@ -14,6 +14,13 @@ import {
   importStatement,
   previewStatementImport,
 } from "@/server/ledger/statements";
+import {
+  confirmMatch,
+  confirmUniqueSuggestions,
+  ignoreLine,
+  unignoreLine,
+  unmatchLine,
+} from "@/server/ledger/reconcile";
 import { LedgerError } from "@/server/ledger/types";
 import { asInlineAction, type InlineActionState } from "./form-data";
 
@@ -107,4 +114,51 @@ export async function deleteImportAction(
   const result = await asInlineAction(() => deleteImport(user, id.data));
   if (result.done) revalidatePath("/[locale]", "layout");
   return result;
+}
+
+// ---- Matching (accountant or above) ----
+
+const lineAndRow = z.object({
+  lineId: z.uuid({ message: "lineNotFound" }),
+  transactionId: z.uuid({ message: "notACandidate" }),
+});
+const lineOnly = z.object({ lineId: z.uuid({ message: "lineNotFound" }) });
+const ignoreInput = z.object({
+  lineId: z.uuid({ message: "lineNotFound" }),
+  reason: z.string({ error: "required" }).trim().min(1, "required").max(200, "tooLong"),
+});
+
+// Validates, checks the role, runs the ledger call and refreshes the pages.
+async function matchingAction<T>(
+  schema: z.ZodType<T>,
+  formData: FormData,
+  run: (user: Awaited<ReturnType<typeof getCurrentUser>>, input: T) => Promise<unknown>,
+): Promise<InlineActionState> {
+  const user = await getCurrentUser();
+  requireRole(user, "accountant");
+  const parsed = schema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "required" };
+  const result = await asInlineAction(() => run(user, parsed.data));
+  if (result.done) revalidatePath("/[locale]", "layout");
+  return result;
+}
+
+export async function confirmMatchAction(_previous: InlineActionState, formData: FormData) {
+  return matchingAction(lineAndRow, formData, (user, input) => confirmMatch(user, input));
+}
+
+export async function unmatchAction(_previous: InlineActionState, formData: FormData) {
+  return matchingAction(lineOnly, formData, (user, input) => unmatchLine(user, input.lineId));
+}
+
+export async function ignoreLineAction(_previous: InlineActionState, formData: FormData) {
+  return matchingAction(ignoreInput, formData, (user, input) => ignoreLine(user, input));
+}
+
+export async function unignoreLineAction(_previous: InlineActionState, formData: FormData) {
+  return matchingAction(lineOnly, formData, (user, input) => unignoreLine(user, input.lineId));
+}
+
+export async function confirmUniqueAction(_previous: InlineActionState, formData: FormData) {
+  return matchingAction(z.object({ importId }), formData, (user, input) => confirmUniqueSuggestions(user, input.importId));
 }

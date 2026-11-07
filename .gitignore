@@ -43,3 +43,6 @@ next-env.d.ts
 
 # real bank statements (never commit)
 /sample/
+
+# design tool workspace (local only)
+/.superdesign/

@@ -30,7 +30,12 @@ export type LedgerErrorCode =
   | "statementAlreadyImported"
   | "importNotFound"
   | "notLatestImport"
-  | "importHasMatches";
+  | "importHasMatches"
+  | "lineNotFound"
+  | "lineNotUnmatched"
+  | "lineNotMatched"
+  | "lineNotIgnored"
+  | "notACandidate";
 
 // A business rule was broken. Thrown inside the DB transaction, so nothing is saved.
 export class LedgerError extends Error {

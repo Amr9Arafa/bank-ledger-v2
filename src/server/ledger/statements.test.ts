@@ -20,6 +20,7 @@ const load = async () => ({
   ...(await import("./statements.ts")),
   ...(await import("./transactions.ts")),
   ...(await import("./cheques.ts")),
+  ...(await import("./reconcile.ts")),
 });
 
 const ADMIN_ID = "4fe23c29-0ab0-43c0-9bfd-a5a296b58841";
@@ -211,7 +212,6 @@ test("a matched row cannot be voided, cancelled or un-cleared, by the ledger or 
       tx.transaction((sp) => sp.update(m.transactions).set({ amountMinor: 501 }).where(sql`${m.transactions.id} = ${feeId}`)),
       dbRejects(/matched to a bank statement line/),
     );
-    await assert.rejects(m.deleteImport(user, importId, tx), rejects("importHasMatches"));
 
     // Cheque: matching an issued cheque may clear it; un-clearing or cancelling is blocked.
     const cheque = await m.createCheque(
@@ -253,5 +253,131 @@ test("a matched row cannot be voided, cancelled or un-cleared, by the ledger or 
     await assert.rejects(tx.transaction((sp) => sp.insert(m.statementMatches).values({
       organizationId: user.organizationId, statementLineId: unmatched[0].id, transactionId: elsewhereId, origin: "matched", createdBy: user.id,
     })), dbRejects(/same account/));
+  });
+});
+
+// ---- Matching (M3) ----
+
+const fee = (m: Awaited<ReturnType<typeof load>>, user: { id: string; organizationId: string }, accountId: string, tx: Executor, date: string, amountMinor = 500) =>
+  m.createMovement(user, { type: "fee", bankAccountId: accountId, transactionDate: date, amountMinor, description: "Fee", notes: null }, {}, tx)
+    .then((r) => (r.status === "created" ? r.ids[0] : ""));
+
+test("suggest, confirm and unmatch a movement, with audit rows", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, importIt } = await setup(tx);
+    const { importId } = await importIt(A());
+    const feeId = await fee(m, user, account.id, tx, "2026-11-04"); // statement says 11-03: 1 day apart
+    const [, , feeLine] = await m.listStatementLines(user.organizationId, importId, null, tx);
+
+    const { suggestions } = await m.getImportSuggestions(user.organizationId, importId, tx);
+    const s = suggestions.get(feeLine.id)!;
+    assert.equal(s.suggested?.transactionId, feeId);
+    assert.equal(s.suggested?.dayDiff, 1);
+    assert.equal(s.unique, true);
+
+    await m.confirmMatch(user, { lineId: feeLine.id, transactionId: feeId }, tx);
+    let [, , after] = await m.listStatementLines(user.organizationId, importId, null, tx);
+    assert.equal(after.status, "matched");
+    assert.equal(after.matchedId, feeId);
+    assert.equal(after.matchOrigin, "matched");
+    await assert.rejects(m.confirmMatch(user, { lineId: feeLine.id, transactionId: feeId }, tx), rejects("lineNotUnmatched"));
+
+    await m.unmatchLine(user, feeLine.id, tx);
+    [, , after] = await m.listStatementLines(user.organizationId, importId, null, tx);
+    assert.equal(after.status, "unmatched");
+    assert.equal(after.matchedId, null);
+    // The fee can be voided again once unmatched.
+    await m.voidTransaction(user, { transactionId: feeId, reason: "x" }, tx);
+
+    const audit = await tx.select().from(m.auditLog).where(sql`${m.auditLog.transactionId} = ${feeId}`);
+    assert.deepEqual(audit.map((a) => a.action).sort(), ["create", "statement_match", "statement_unmatch", "void"]);
+  });
+});
+
+test("rows that do not fit the line are refused, whatever the page sent", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, other, importIt } = await setup(tx);
+    const { importId } = await importIt(A());
+    const [beforeStart, , feeLine] = await m.listStatementLines(user.organizationId, importId, null, tx);
+    const wrongAmount = await fee(m, user, account.id, tx, "2026-11-03", 501);
+    const tooLate = await fee(m, user, account.id, tx, "2026-11-08");
+    const otherAccount = await fee(m, user, other.id, tx, "2026-11-03");
+    for (const transactionId of [wrongAmount, tooLate, otherAccount]) {
+      await assert.rejects(m.confirmMatch(user, { lineId: feeLine.id, transactionId }, tx), rejects("notACandidate"));
+    }
+    // Lines before the start date are not matchable.
+    await assert.rejects(m.confirmMatch(user, { lineId: beforeStart.id, transactionId: wrongAmount }, tx), rejects("lineNotUnmatched"));
+  });
+});
+
+test("matching an issued cheque clears it; deleting the import un-clears it", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, importIt } = await setup(tx);
+    const { importId } = await importIt(A());
+    // Our number is the trailing part of the bank's 00100000000123.
+    const cheque = await m.createCheque(
+      user,
+      { bankAccountId: account.id, chequeNumber: "100000000123", partyName: "Payee", transactionDate: "2026-11-02",
+        dueDate: null, amountMinor: 5000, notes: null },
+      tx,
+    );
+    const [, chequeLine] = await m.listStatementLines(user.organizationId, importId, null, tx);
+    const { suggestions } = await m.getImportSuggestions(user.organizationId, importId, tx);
+    assert.equal(suggestions.get(chequeLine.id)?.suggested?.chequeNumberMatch, true);
+
+    const result = await m.confirmMatch(user, { lineId: chequeLine.id, transactionId: cheque.id }, tx);
+    assert.equal(result.clearedCheque, true);
+    const [cleared] = await tx.select().from(m.transactions).where(sql`${m.transactions.id} = ${cheque.id}`);
+    assert.equal(cleared.status, "cleared");
+    assert.equal(cleared.clearedDate, "2026-11-02");
+
+    await m.deleteImport(user, importId, tx);
+    const [restored] = await tx.select().from(m.transactions).where(sql`${m.transactions.id} = ${cheque.id}`);
+    assert.equal(restored.status, "issued");
+    assert.equal(restored.clearedDate, null);
+    assert.equal((await tx.select().from(m.statementMatches)).filter((x) => x.transactionId === cheque.id).length, 0);
+    const actions = (await tx.select().from(m.auditLog).where(sql`${m.auditLog.transactionId} = ${cheque.id}`)).map((a) => a.action);
+    assert.deepEqual(actions.sort(), ["clear", "create", "statement_match", "statement_unmatch", "unclear"]);
+  });
+});
+
+test("a cheque already cleared by hand is matched without changing it", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, importIt } = await setup(tx);
+    const { importId } = await importIt(A());
+    const cheque = await m.createCheque(
+      user,
+      { bankAccountId: account.id, chequeNumber: "100000000123", partyName: "Payee", transactionDate: "2026-11-02",
+        dueDate: null, amountMinor: 5000, notes: null },
+      tx,
+    );
+    await m.clearCheque(user, { transactionId: cheque.id, clearedDate: "2026-11-03" }, tx);
+    const [, chequeLine] = await m.listStatementLines(user.organizationId, importId, null, tx);
+    const result = await m.confirmMatch(user, { lineId: chequeLine.id, transactionId: cheque.id }, tx);
+    assert.equal(result.clearedCheque, false);
+    await m.unmatchLine(user, chequeLine.id, tx);
+    const [still] = await tx.select().from(m.transactions).where(sql`${m.transactions.id} = ${cheque.id}`);
+    assert.equal(still.status, "cleared"); // it was cleared by hand, so undo leaves it cleared
+  });
+});
+
+test("ignore and restore a line; bulk-confirm only sure matches", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, importIt } = await setup(tx);
+    const { importId } = await importIt(A());
+    const [, chequeLine, feeLine] = await m.listStatementLines(user.organizationId, importId, null, tx);
+
+    await m.ignoreLine(user, { lineId: chequeLine.id, reason: "bank correction" }, tx);
+    let lines = await m.listStatementLines(user.organizationId, importId, "ignored", tx);
+    assert.deepEqual(lines.map((l) => [l.id, l.ignoreReason]), [[chequeLine.id, "bank correction"]]);
+    await m.unignoreLine(user, chequeLine.id, tx);
+    await assert.rejects(m.unignoreLine(user, chequeLine.id, tx), rejects("lineNotIgnored"));
+
+    // Two equal fees in the ledger for one fee line: not sure, so not bulk-confirmed.
+    await fee(m, user, account.id, tx, "2026-11-03");
+    await fee(m, user, account.id, tx, "2026-11-04");
+    assert.deepEqual(await m.confirmUniqueSuggestions(user, importId, tx), { confirmed: 0 });
+    lines = await m.listStatementLines(user.organizationId, importId, "unmatched", tx);
+    assert.ok(lines.some((l) => l.id === feeLine.id));
   });
 });
