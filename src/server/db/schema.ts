@@ -172,9 +172,11 @@ export const transactions = pgTable(
       "transactions_transfer_group_check",
       sql`(${t.type} in ('internal_in', 'internal_out')) = (${t.transferGroupId} is not null)`,
     ),
+    // A cancelled cheque frees its number: undoing an old cheque created from a statement
+    // cancels it, and re-importing that statement must be able to create it again.
     uniqueIndex("cheque_number_per_account")
       .on(t.bankAccountId, t.chequeNumber)
-      .where(sql`${t.type} = 'cheque'`),
+      .where(sql`${t.type} = 'cheque' and ${t.status} <> 'cancelled'`),
     index("ledger_order").on(t.bankAccountId, t.transactionDate, t.createdAt),
     index("transactions_transfer_group").on(t.transferGroupId),
   ],

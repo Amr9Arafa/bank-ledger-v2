@@ -1,0 +1,2 @@
+DROP INDEX "cheque_number_per_account";--> statement-breakpoint
+CREATE UNIQUE INDEX "cheque_number_per_account" ON "transactions" USING btree ("bank_account_id","cheque_number") WHERE "transactions"."type" = 'cheque' and "transactions"."status" <> 'cancelled';

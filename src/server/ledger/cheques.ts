@@ -1,6 +1,6 @@
 // Cheques: issued -> cleared (cashed) or cancelled (voided before cashing).
 // Every write runs in one DB transaction with its audit row.
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
 import { nextChequeNumber } from "../../lib/cheques.ts";
 import type {
   CancelChequeInput,
@@ -45,6 +45,8 @@ export async function createCheque(
             eq(transactions.bankAccountId, input.bankAccountId),
             eq(transactions.type, "cheque"),
             eq(transactions.chequeNumber, input.chequeNumber),
+            // Cancelled cheques free their number (see the cheque_number_per_account index).
+            ne(transactions.status, "cancelled"),
           ),
         );
       if (taken) throw new LedgerError("chequeNumberTaken", "chequeNumber");

@@ -157,7 +157,8 @@
     "lineNotUnmatched": "This line is already matched or ignored.",
     "lineNotMatched": "This line is not matched.",
     "lineNotIgnored": "This line is not ignored.",
-    "notACandidate": "This record does not fit the statement line (amount, direction, date or cheque number), or it is already matched."
+    "notACandidate": "This record does not fit the statement line (amount, direction, date or cheque number), or it is already matched.",
+    "typeNotForLine": "This kind of record does not fit the line's direction."
   },
   "ledger": {
     "types": {
@@ -503,7 +504,7 @@
       "delete": "Delete",
       "confirmDelete": "Delete import",
       "keep": "Keep",
-      "deleteNote": "Removes this statement and its lines. The ledger is not changed."
+      "deleteNote": "Removes this statement and its lines, and undoes everything done from it: matches are removed, cheques it cleared go back to outstanding, and records created from it are voided or cancelled."
     },
     "detail": {
       "back": "All statements",
@@ -559,6 +560,38 @@
       "confirmUnique": "Confirm {count, plural, one {# sure match} other {# sure matches}}",
       "confirmUniqueNote": "Lines with exactly one possible record that no other line wants.",
       "confirmedCount": "{count, plural, =0 {Nothing to confirm.} one {# match confirmed.} other {# matches confirmed.}}"
+    },
+    "create": {
+      "open": "Create record",
+      "type": "Record",
+      "save": "Create",
+      "cancel": "Cancel",
+      "types": {
+        "transfer_in": "Incoming transfer",
+        "transfer_out": "Outgoing transfer",
+        "fee": "Bank fee",
+        "interest": "Bank interest",
+        "cheque": "Old cheque (issued before the start date)",
+        "internal": "Transfer between our accounts"
+      },
+      "sender": "Sender",
+      "beneficiary": "Beneficiary",
+      "payee": "Payee",
+      "description": "Description",
+      "chequeNumber": "Cheque number",
+      "toAccount": "To account",
+      "fromAccount": "From account",
+      "notes": "Notes",
+      "oldChequeNote": "Issued before the start date.",
+      "fromLine": "Date, amount and bank reference come from the statement line. An old cheque is recorded as issued and cleared on this day.",
+      "createdNote": "Created from this line",
+      "undo": "Undo",
+      "confirmUndo": "Undo record",
+      "undoNote": "Voids the record created from this line (a cheque is cancelled). Records are never deleted.",
+      "bulkFees": "Create {count, plural, one {# fee} other {# fees}}",
+      "bulkInterest": "Create {count, plural, one {# interest record} other {# interest records}}",
+      "bulkNote": "One record per line that has no possible record in the app. Lines that might match something are left for you.",
+      "keep": "Keep"
     }
   }
 }

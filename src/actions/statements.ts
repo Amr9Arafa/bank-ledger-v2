@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { parseStatementFile, type ParsedStatement } from "@/lib/statements";
 import type { StatementError } from "@/lib/statements/types";
+import { createFromLineSchema, fieldErrors } from "@/lib/validation";
 import { requireRole } from "@/server/auth/roles";
 import { getCurrentUser } from "@/server/auth/session";
 import { db } from "@/server/db/client";
@@ -17,12 +18,14 @@ import {
 import {
   confirmMatch,
   confirmUniqueSuggestions,
+  createAllFromImport,
+  createFromLine,
   ignoreLine,
   unignoreLine,
   unmatchLine,
 } from "@/server/ledger/reconcile";
 import { LedgerError } from "@/server/ledger/types";
-import { asInlineAction, type InlineActionState } from "./form-data";
+import { asInlineAction, formValues, type InlineActionState } from "./form-data";
 
 // MT940 files are a few KB a week; anything near this is not a statement.
 const MAX_FILE_BYTES = 1_000_000;
@@ -161,4 +164,51 @@ export async function unignoreLineAction(_previous: InlineActionState, formData:
 
 export async function confirmUniqueAction(_previous: InlineActionState, formData: FormData) {
   return matchingAction(z.object({ importId }), formData, (user, input) => confirmUniqueSuggestions(user, input.importId));
+}
+
+// ---- Creating records from lines (accountant or above) ----
+
+export type CreateFromLineState = {
+  errors: Record<string, string>;
+  formError?: string;
+  // What was typed: React resets the form after an action, so inputs reload these.
+  values: Record<string, string>;
+  done?: boolean;
+};
+
+export async function createFromLineAction(
+  _previous: CreateFromLineState,
+  formData: FormData,
+): Promise<CreateFromLineState> {
+  const user = await getCurrentUser();
+  requireRole(user, "accountant");
+  const values = formValues(formData);
+  const parsed = createFromLineSchema.safeParse(values);
+  if (!parsed.success) return { values, errors: fieldErrors(parsed.error) };
+  try {
+    await createFromLine(user, parsed.data);
+  } catch (error) {
+    if (error instanceof LedgerError) {
+      // Fields the form shows get the error next to them; anything else goes on top.
+      const shown = ["partyName", "description", "chequeNumber", "otherAccountId", "notes"];
+      return error.field && shown.includes(error.field)
+        ? { values, errors: { [error.field]: error.code } }
+        : { values, errors: {}, formError: error.code };
+    }
+    throw error;
+  }
+  revalidatePath("/[locale]", "layout");
+  return { values, errors: {}, done: true };
+}
+
+export async function createAllFeesAction(_previous: InlineActionState, formData: FormData) {
+  return matchingAction(z.object({ importId }), formData, (user, input) =>
+    createAllFromImport(user, { importId: input.importId, kind: "fee" }),
+  );
+}
+
+export async function createAllInterestAction(_previous: InlineActionState, formData: FormData) {
+  return matchingAction(z.object({ importId }), formData, (user, input) =>
+    createAllFromImport(user, { importId: input.importId, kind: "interest" }),
+  );
 }

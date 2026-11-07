@@ -48,6 +48,17 @@ const CREDIT = new Set(["transfer_in", "deposit", "internal_in", "interest"]);
 
 const dayNumber = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86_400_000;
 
+// How many trailing digits of the bank's cheque reference are the serial printed on our
+// cheques (NBE: "07817000208006" -> "208006"). Old cheques created from statement lines
+// are stored as this serial, the same format as cheques entered by hand, so the
+// next-number suggestion keeps working. Change here if the printed number differs.
+export const CHEQUE_SERIAL_DIGITS = 6;
+
+// The serial part of a bank cheque reference: its last CHEQUE_SERIAL_DIGITS digits.
+export function chequeSerial(statementRef: string): string {
+  return statementRef.replace(/\D/g, "").slice(-CHEQUE_SERIAL_DIGITS);
+}
+
 // Cheque numbers: the number we store (as typed from the cheque) must equal the trailing
 // digits of the bank's reference, leading zeros ignored on our side. "208006" and
 // "00208006" both match "07817000208006". Fewer than 4 digits is too weak to decide.

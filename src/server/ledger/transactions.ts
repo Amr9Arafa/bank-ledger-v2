@@ -63,7 +63,8 @@ export async function createMovement(
     }
 
     // FR-4: same account, direction, amount, date and reference is likely a duplicate.
-    if (input.type !== "fee" && !options.allowDuplicate) {
+    // Fees and interest have no reference and repeat daily, so they are never "duplicates".
+    if ("partyName" in input && !options.allowDuplicate) {
       const [existing] = await tx
         .select({ id: transactions.id })
         .from(transactions)
@@ -93,9 +94,9 @@ export async function createMovement(
         transactionDate: input.transactionDate,
         status: "active",
         notes: input.notes,
-        ...(input.type === "fee"
-          ? { description: input.description }
-          : { partyName: input.partyName, reference: input.reference }),
+        ...("partyName" in input
+          ? { partyName: input.partyName, reference: input.reference }
+          : { description: input.description }),
         createdBy: user.id,
         updatedBy: user.id,
       })

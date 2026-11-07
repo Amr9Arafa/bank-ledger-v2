@@ -50,7 +50,8 @@ export const movementSchema = z.discriminatedUnion("type", [
     notes,
   }),
   z.object({
-    type: z.literal("fee"),
+    // Fees, and bank interest (recorded from statements, no manual form tab).
+    type: z.enum(["fee", "interest"]),
     bankAccountId: accountId,
     transactionDate: day,
     amountMinor: amount,
@@ -73,6 +74,29 @@ export const internalTransferSchema = z
     path: ["toAccountId"],
   });
 export type InternalTransferInput = z.infer<typeof internalTransferSchema>;
+
+// Creating the ledger record for a statement line. Amount, date and bank reference come
+// from the line itself (server side), never from the form.
+const lineId = z.uuid({ message: "lineNotFound" });
+export const createFromLineSchema = z.discriminatedUnion("type", [
+  z.object({ lineId, type: z.enum(["transfer_in", "transfer_out"]), partyName: requiredText(200), notes }),
+  z.object({ lineId, type: z.enum(["fee", "interest"]), description: requiredText(200), notes }),
+  // An old cheque: issued before the start date, recorded on the day it cleared.
+  z.object({
+    lineId,
+    type: z.literal("cheque"),
+    chequeNumber: z
+      .string({ error: "required" })
+      .trim()
+      .min(1, "required")
+      .max(30, "tooLong")
+      .regex(/^[0-9A-Za-z-]+$/, "invalidChequeNumber"),
+    partyName: requiredText(200),
+    notes,
+  }),
+  z.object({ lineId, type: z.literal("internal"), otherAccountId: accountId, notes }),
+]);
+export type CreateFromLineInput = z.infer<typeof createFromLineSchema>;
 
 export const voidSchema = z.object({
   transactionId: z.uuid({ message: "invalidTransaction" }),

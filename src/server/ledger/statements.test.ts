@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { sql } from "drizzle-orm";
 import type { Executor } from "../db/client.ts";
 import { parseStatementFile } from "../../lib/statements/index.ts";
+import { chequeSerial } from "../../lib/statements/match.ts";
 import type { ParsedStatement } from "../../lib/statements/types.ts";
 
 try {
@@ -21,6 +22,7 @@ const load = async () => ({
   ...(await import("./transactions.ts")),
   ...(await import("./cheques.ts")),
   ...(await import("./reconcile.ts")),
+  ...(await import("./balances.ts")),
 });
 
 const ADMIN_ID = "4fe23c29-0ab0-43c0-9bfd-a5a296b58841";
@@ -379,5 +381,151 @@ test("ignore and restore a line; bulk-confirm only sure matches", { skip }, asyn
     assert.deepEqual(await m.confirmUniqueSuggestions(user, importId, tx), { confirmed: 0 });
     lines = await m.listStatementLines(user.organizationId, importId, "unmatched", tx);
     assert.ok(lines.some((l) => l.id === feeLine.id));
+  });
+});
+
+// ---- Creating records from lines (M4) ----
+
+// One line of each kind, on/after the start date. Balance at end of 11-01 = 1000.00.
+const M4 = () =>
+  statement(
+    "M4",
+    "C261101EGP1000,00",
+    [
+      ":61:2611021102DP50,00NCHKNONREF//R2", ":86:Cheque withdrawal--07800000208123",
+      ":61:2611031103DP5,00NTRFNONREF//R3", ":86:Outgoing ACH transfer charges via internet banking- TO-Delta",
+      ":61:2611031103CP0,25NINTNONREF//INT 1", ":86:Credit interest-1111",
+      ":61:2611041103CP0,30NINTNONREF//INT 1", ":86:interest adjustment-1111",
+      ":61:2611041104DP100,00NMSCNONREF//078FTNU1", ":86:Account to Account Transfer-From-US To-US TOO~PC1",
+      ":61:2611051105CP20,00NTRFNONREF//078FTIC2", ":86:incoming transfer IPN network from GAMMA~P2",
+      ":61:2611051105DP30,00NTRFNONREF//078OPDB3", ":86:outgoing ACH transfer through internet banking- TO-Delta",
+    ],
+    "C261105EGP835,55",
+  );
+// The other account's side of the internal transfer.
+const OTHER_SIDE = () =>
+  statement(
+    "O1",
+    "C261101EGP0,00",
+    [":61:2611041104CP100,00NMSCNONREF//078FTNU1", ":86:Account to Account Transfer-From-US To-US TOO~PC1"],
+    "C261104EGP100,00",
+    "999",
+  );
+
+const rowOf = async (m: Awaited<ReturnType<typeof load>>, tx: Executor, id: string) =>
+  (await tx.select().from(m.transactions).where(sql`${m.transactions.id} = ${id}`))[0];
+
+test("create every kind of record from statement lines, then delete the import to undo all", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, other, importIt } = await setup(tx);
+    const { importId } = await importIt(M4());
+    const [cheque, feeL, int1, int2, internal, incoming, outgoing] = await m.listStatementLines(user.organizationId, importId, null, tx);
+
+    const create = async (input: Parameters<typeof m.createFromLine>[1]) => (await m.createFromLine(user, input, tx)).transactionId;
+    const ids = [
+      await create({ lineId: cheque.id, type: "cheque", chequeNumber: chequeSerial(cheque.chequeRef!), partyName: "Old payee", notes: "issued before start date" }),
+      await create({ lineId: feeL.id, type: "fee", description: feeL.description, notes: null }),
+      await create({ lineId: int1.id, type: "interest", description: int1.description, notes: null }),
+      await create({ lineId: internal.id, type: "internal", otherAccountId: other.id, notes: null }),
+      await create({ lineId: incoming.id, type: "transfer_in", partyName: "Customer G", notes: null }),
+      await create({ lineId: outgoing.id, type: "transfer_out", partyName: "Delta", notes: null }),
+    ];
+    const rows = await Promise.all(ids.map((id) => rowOf(m, tx, id)));
+    assert.deepEqual(
+      rows.map((r) => [r.type, r.status, r.amountMinor, r.transactionDate]),
+      [
+        ["cheque", "cleared", 5000, "2026-11-02"],
+        ["fee", "active", 500, "2026-11-03"],
+        ["interest", "active", 25, "2026-11-03"],
+        ["internal_out", "active", 10000, "2026-11-04"],
+        ["transfer_in", "active", 2000, "2026-11-05"],
+        ["transfer_out", "active", 3000, "2026-11-05"],
+      ],
+    );
+    assert.equal(rows[0].clearedDate, "2026-11-02");
+    assert.equal(rows[0].chequeNumber, "208123"); // the serial, as printed on the cheque
+    assert.equal(rows[4].reference, "078FTIC2");
+    assert.equal(rows[2].description, "Credit interest-1111");
+    // The internal transfer's other half is on the other account.
+    const pair = await tx.select().from(m.transactions).where(sql`${m.transactions.transferGroupId} = ${rows[3].transferGroupId}`);
+    assert.deepEqual(pair.map((r) => [r.type, r.bankAccountId]).sort(), [["internal_in", other.id], ["internal_out", account.id]]);
+
+    // Interest counts as a credit: 1000 - 50 - 5 + 0.25 - 100 + 20 - 30 = 835.25.
+    const balanceOf = async () => (await m.getAccountBalances(user.organizationId, tx)).find((b) => b.id === account.id)!;
+    assert.equal((await balanceOf()).bankBalanceMinor, 83525);
+    assert.equal(int2.status, "unmatched");
+    assert.equal((await m.listStatementLines(user.organizationId, importId, "created", tx)).length, 6);
+
+    // Deleting the import voids/cancels every created record; nothing is hard-deleted.
+    await m.deleteImport(user, importId, tx);
+    const after = await Promise.all([...ids, ...pair.map((p) => p.id)].map((id) => rowOf(m, tx, id)));
+    assert.deepEqual(after.map((r) => r.status), ["cancelled", "voided", "voided", "voided", "voided", "voided", "voided", "voided"]);
+    assert.equal(after[0].clearedDate, null);
+    const back = await balanceOf();
+    assert.equal(back.bankBalanceMinor, 100000);
+    assert.equal(back.bookBalanceMinor, 100000);
+  });
+});
+
+test("undoing an internal transfer created from one statement unmatches the other account's line", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, other, importIt } = await setup(tx);
+    const { importId } = await importIt(M4());
+    const internal = (await m.listStatementLines(user.organizationId, importId, null, tx))[4];
+    const { transactionId } = await m.createFromLine(user, { lineId: internal.id, type: "internal", otherAccountId: other.id, notes: null }, tx);
+
+    // The other account's statement: its line is suggested the internal_in half; confirm it.
+    const otherImport = await importIt(OTHER_SIDE(), other.id);
+    const [otherLine] = await m.listStatementLines(user.organizationId, otherImport.importId, null, tx);
+    const { suggestions } = await m.getImportSuggestions(user.organizationId, otherImport.importId, tx);
+    const half = suggestions.get(otherLine.id)!.suggested!.transactionId;
+    await m.confirmMatch(user, { lineId: otherLine.id, transactionId: half }, tx);
+
+    // Voiding the pair by hand is refused while matched...
+    await assert.rejects(m.voidTransaction(user, { transactionId, reason: "x" }, tx), rejects("matchedToStatement"));
+    // ...but undoing the created line unmatches the other side and voids both halves.
+    await m.unmatchLine(user, internal.id, tx);
+    assert.equal((await rowOf(m, tx, transactionId)).status, "voided");
+    assert.equal((await rowOf(m, tx, half)).status, "voided");
+    const [otherAfter] = await m.listStatementLines(user.organizationId, otherImport.importId, null, tx);
+    assert.equal(otherAfter.status, "unmatched");
+  });
+});
+
+test("bulk creates fees and interest only for lines with no possible record", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, importIt } = await setup(tx);
+    const { importId } = await importIt(M4());
+    // A fee already in the app for the fee line: bulk must leave that line for review.
+    await fee(m, user, account.id, tx, "2026-11-03");
+    assert.deepEqual(await m.createAllFromImport(user, { importId, kind: "fee" }, tx), { created: 0 });
+    assert.deepEqual(await m.createAllFromImport(user, { importId, kind: "interest" }, tx), { created: 2 });
+    const created = await m.listStatementLines(user.organizationId, importId, "created", tx);
+    assert.deepEqual(created.map((l) => [l.kind, l.matchedType]), [["interest", "interest"], ["interest", "interest"]]);
+    assert.deepEqual(await m.createAllFromImport(user, { importId, kind: "interest" }, tx), { created: 0 });
+  });
+});
+
+test("a record type must fit the line's direction", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, importIt } = await setup(tx);
+    const { importId } = await importIt(M4());
+    const [cheque, , int1] = await m.listStatementLines(user.organizationId, importId, null, tx);
+    await assert.rejects(m.createFromLine(user, { lineId: int1.id, type: "fee", description: "x", notes: null }, tx), rejects("typeNotForLine"));
+    await assert.rejects(m.createFromLine(user, { lineId: cheque.id, type: "transfer_in", partyName: "x", notes: null }, tx), rejects("typeNotForLine"));
+  });
+});
+
+test("an old cheque can be created again after its import was deleted and re-imported", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, importIt } = await setup(tx);
+    const createOldCheque = async () => {
+      const { importId } = await importIt(M4());
+      const [cheque] = await m.listStatementLines(user.organizationId, importId, null, tx);
+      await m.createFromLine(user, { lineId: cheque.id, type: "cheque", chequeNumber: chequeSerial(cheque.chequeRef!), partyName: "P", notes: null }, tx);
+      return importId;
+    };
+    await m.deleteImport(user, await createOldCheque(), tx);
+    await createOldCheque(); // the first cheque is cancelled; its number must be usable again
   });
 });

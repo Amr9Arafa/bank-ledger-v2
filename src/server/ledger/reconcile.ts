@@ -1,7 +1,7 @@
 // Reconciliation: suggest, confirm, undo and ignore matches between statement lines and
 // ledger rows. A match never changes a ledger row except one thing: confirming a cheque
 // line against an issued cheque clears it (on the booking date), and undoing un-clears it.
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   type LineSuggestion,
   MATCH_WINDOW_DAYS,
@@ -13,7 +13,9 @@ import { addDays } from "../../lib/cheques.ts";
 import { db, type Executor } from "../db/client.ts";
 import { statementLines, statementMatches, transactions } from "../db/schema.ts";
 import { writeAudit } from "./audit.ts";
-import { clearCheque, unclearCheque } from "./cheques.ts";
+import type { CreateFromLineInput } from "../../lib/validation.ts";
+import { cancelCheque, clearCheque, createCheque, unclearCheque } from "./cheques.ts";
+import { createInternalTransfer, createMovement, voidTransaction } from "./transactions.ts";
 import { LedgerError, type LedgerUser } from "./types.ts";
 
 export type CandidateRow = MatchRow & {
@@ -117,7 +119,7 @@ async function setLineStatus(
   tx: Executor,
   user: LedgerUser,
   lineId: string,
-  status: "unmatched" | "matched" | "ignored",
+  status: "unmatched" | "matched" | "created" | "ignored",
   ignoreReason: string | null = null,
 ) {
   await tx
@@ -178,30 +180,189 @@ export async function confirmMatch(
   });
 }
 
-// Removes a line's match and reverses what confirming it did. The match row goes first:
-// the database refuses to un-clear a cheque while it is matched.
-// Lines whose record was created from the statement are undone in M4 (void/cancel).
-export async function undoMatch(tx: Executor, user: LedgerUser, lineId: string) {
-  const [match] = await tx.select().from(statementMatches).where(eq(statementMatches.statementLineId, lineId));
-  if (!match) return;
-  if (match.origin === "created") throw new LedgerError("importHasMatches");
+// Why a record created from a statement line was voided or cancelled when it was undone.
+// Stored data (like any void reason), not a UI label.
+const UNDO_REASON = "Undone from bank statement";
 
+// Removes one match row and puts its line back to unmatched. Nothing else changes.
+async function removeMatch(tx: Executor, user: LedgerUser, match: typeof statementMatches.$inferSelect) {
   await tx.delete(statementMatches).where(eq(statementMatches.id, match.id));
-  if (match.clearedCheque) await unclearCheque(user, match.transactionId, tx);
-  await setLineStatus(tx, user, lineId, "unmatched");
+  await setLineStatus(tx, user, match.statementLineId, "unmatched");
   await writeAudit(tx, user, {
     action: "statement_unmatch",
     transactionId: match.transactionId,
-    before: { lineId, clearedCheque: match.clearedCheque },
+    before: { lineId: match.statementLineId, origin: match.origin, clearedCheque: match.clearedCheque },
     after: null,
   });
 }
 
+// Removes a line's match and reverses everything it did, leaving the ledger as before.
+// Match rows go first: the database refuses to void, cancel or un-clear a matched row.
+//   matched: a cheque cleared by the match is un-cleared.
+//   created: the record made from the line is voided (an internal transfer: both halves,
+//            after unmatching the other half too) or, for a cheque, un-cleared and cancelled.
+export async function undoMatch(tx: Executor, user: LedgerUser, lineId: string) {
+  const [match] = await tx.select().from(statementMatches).where(eq(statementMatches.statementLineId, lineId));
+  if (!match) return;
+
+  if (match.origin === "matched") {
+    await removeMatch(tx, user, match);
+    if (match.clearedCheque) await unclearCheque(user, match.transactionId, tx);
+    return;
+  }
+
+  const [row] = await tx.select().from(transactions).where(eq(transactions.id, match.transactionId));
+  const groupIds = row.transferGroupId
+    ? (await tx.select({ id: transactions.id }).from(transactions).where(eq(transactions.transferGroupId, row.transferGroupId))).map((r) => r.id)
+    : [row.id];
+  for (const m of await tx.select().from(statementMatches).where(inArray(statementMatches.transactionId, groupIds))) {
+    await removeMatch(tx, user, m);
+  }
+  if (row.type === "cheque") {
+    if (row.status === "cleared") await unclearCheque(user, row.id, tx);
+    await cancelCheque(user, { transactionId: row.id, reason: UNDO_REASON }, tx);
+  } else {
+    await voidTransaction(user, { transactionId: row.id, reason: UNDO_REASON }, tx);
+  }
+}
+
+// Undo one line: a confirmed match is removed; a record created from the line is voided or
+// cancelled (records are never deleted).
 export async function unmatchLine(user: LedgerUser, lineId: string, database: Executor = db) {
   return database.transaction(async (tx) => {
     const line = await lockLine(tx, user, lineId);
-    if (line.status !== "matched") throw new LedgerError("lineNotMatched");
+    if (line.status !== "matched" && line.status !== "created") throw new LedgerError("lineNotMatched");
     await undoMatch(tx, user, line.id);
+  });
+}
+
+const ALLOWED: Record<"credit" | "debit", CreateFromLineInput["type"][]> = {
+  credit: ["transfer_in", "interest", "internal"],
+  debit: ["transfer_out", "fee", "cheque", "internal"],
+};
+
+// Creates the ledger record a statement line proves, through the normal ledger functions
+// (same rules and audit rows as manual entry), and links it to the line. Amount, date and
+// bank reference come from the line. An old cheque is issued and cleared on the booking date.
+export async function createFromLine(user: LedgerUser, input: CreateFromLineInput, database: Executor = db) {
+  return database.transaction(async (tx) => {
+    const line = await lockLine(tx, user, input.lineId);
+    if (line.status !== "unmatched") throw new LedgerError("lineNotUnmatched");
+    if (!ALLOWED[line.direction].includes(input.type)) throw new LedgerError("typeNotForLine");
+
+    const common = {
+      bankAccountId: line.bankAccountId,
+      transactionDate: line.bookingDate,
+      amountMinor: line.amountMinor,
+      notes: input.notes,
+    };
+    let transactionId: string;
+    switch (input.type) {
+      case "transfer_in":
+      case "transfer_out": {
+        // The statement is the evidence, so no duplicate prompt: matching showed no candidate.
+        const r = await createMovement(
+          user,
+          { ...common, type: input.type, partyName: input.partyName, reference: line.bankRef || null },
+          { allowDuplicate: true },
+          tx,
+        );
+        transactionId = r.status === "created" ? r.ids[0] : r.existingId;
+        break;
+      }
+      case "fee":
+      case "interest": {
+        const r = await createMovement(user, { ...common, type: input.type, description: input.description }, {}, tx);
+        transactionId = r.status === "created" ? r.ids[0] : r.existingId;
+        break;
+      }
+      case "cheque": {
+        const { id } = await createCheque(
+          user,
+          { ...common, chequeNumber: input.chequeNumber, partyName: input.partyName, dueDate: null },
+          tx,
+        );
+        await clearCheque(user, { transactionId: id, clearedDate: line.bookingDate }, tx);
+        transactionId = id;
+        break;
+      }
+      case "internal": {
+        const [fromAccountId, toAccountId] =
+          line.direction === "debit" ? [line.bankAccountId, input.otherAccountId] : [input.otherAccountId, line.bankAccountId];
+        const r = await createInternalTransfer(
+          user,
+          { fromAccountId, toAccountId, transactionDate: line.bookingDate, amountMinor: line.amountMinor, notes: input.notes },
+          tx,
+        );
+        const [mine] = await tx
+          .select({ id: transactions.id })
+          .from(transactions)
+          .where(
+            and(
+              // Internal transfers never report a duplicate; the narrowing is for the type only.
+              inArray(transactions.id, r.status === "created" ? r.ids : []),
+              eq(transactions.bankAccountId, line.bankAccountId),
+            ),
+          );
+        transactionId = mine.id;
+        break;
+      }
+    }
+
+    await tx.insert(statementMatches).values({
+      organizationId: user.organizationId,
+      statementLineId: line.id,
+      transactionId,
+      origin: "created",
+      createdBy: user.id,
+    });
+    await setLineStatus(tx, user, line.id, "created");
+    await writeAudit(tx, user, {
+      action: "statement_match",
+      transactionId,
+      before: null,
+      after: { lineId: line.id, importId: line.importId, origin: "created", bookingDate: line.bookingDate, amountMinor: line.amountMinor, bankRef: line.bankRef },
+    });
+    return { transactionId };
+  });
+}
+
+// Lines that "create all fees / interest" would create records for: unmatched lines of that
+// kind with no possible record in the app (anything that might match is left for review).
+export async function bulkCandidates(
+  organizationId: string,
+  importId: string,
+  kind: "fee" | "interest",
+  database: Executor = db,
+) {
+  const { suggestions } = await getImportSuggestions(organizationId, importId, database);
+  const lines = await database
+    .select({ id: statementLines.id, description: statementLines.description })
+    .from(statementLines)
+    .where(
+      and(
+        eq(statementLines.organizationId, organizationId),
+        eq(statementLines.importId, importId),
+        eq(statementLines.status, "unmatched"),
+        eq(statementLines.kind, kind),
+        eq(statementLines.direction, kind === "fee" ? "debit" : "credit"),
+      ),
+    );
+  return lines.filter((l) => (suggestions.get(l.id)?.candidates.length ?? 0) === 0);
+}
+
+// Bulk: one fee (or interest) record per line from bulkCandidates. All or nothing.
+export async function createAllFromImport(
+  user: LedgerUser,
+  input: { importId: string; kind: "fee" | "interest" },
+  database: Executor = db,
+) {
+  return database.transaction(async (tx) => {
+    const lines = await bulkCandidates(user.organizationId, input.importId, input.kind, tx);
+    for (const line of lines) {
+      await createFromLine(user, { lineId: line.id, type: input.kind, description: line.description.slice(0, 200), notes: null }, tx);
+    }
+    return { created: lines.length };
   });
 }
 

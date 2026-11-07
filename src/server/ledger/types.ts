@@ -35,7 +35,8 @@ export type LedgerErrorCode =
   | "lineNotUnmatched"
   | "lineNotMatched"
   | "lineNotIgnored"
-  | "notACandidate";
+  | "notACandidate"
+  | "typeNotForLine";
 
 // A business rule was broken. Thrown inside the DB transaction, so nothing is saved.
 export class LedgerError extends Error {

@@ -3,10 +3,13 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { z } from "zod";
 import {
   confirmUniqueAction,
+  createAllFeesAction,
+  createAllInterestAction,
   ignoreLineAction,
   unignoreLineAction,
   unmatchAction,
 } from "@/actions/statements";
+import CreateFromLineForm, { type CreateDefaults } from "@/components/CreateFromLineForm";
 import InlineAction from "@/components/InlineAction";
 import MatchConfirm, { type CandidateOption } from "@/components/MatchConfirm";
 import { panel } from "@/components/styles";
@@ -14,9 +17,11 @@ import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { formatDay } from "@/lib/dates";
 import { formatEGP } from "@/lib/money";
+import { chequeSerial } from "@/lib/statements/match";
 import { hasRole } from "@/server/auth/roles";
 import { getCurrentUser } from "@/server/auth/session";
 import type { TransactionType } from "@/server/db/schema";
+import { getActiveAccounts } from "@/server/ledger/accounts";
 import { getImportSuggestions } from "@/server/ledger/reconcile";
 import { getStatementImport, listStatementLines } from "@/server/ledger/statements";
 
@@ -47,10 +52,13 @@ export default async function StatementImportPage({ params, searchParams }: Page
   if (!statement) notFound();
   const canWrite = hasRole(user, "accountant");
 
-  const [allLines, { suggestions, rows }] = await Promise.all([
+  const [allLines, { suggestions, rows }, accounts] = await Promise.all([
     listStatementLines(user.organizationId, id),
     getImportSuggestions(user.organizationId, id),
+    getActiveAccounts(user.organizationId),
   ]);
+  const otherAccounts = accounts.filter((a) => a.id !== statement.bankAccountId).map((a) => ({ id: a.id, name: a.name }));
+  const canIssueCheques = accounts.find((a) => a.id === statement.bankAccountId)?.issuesCheques ?? false;
   const lines = allLines.map((l) => ({
     ...l,
     shown: (l.status === "unmatched" && suggestions.get(l.id)?.suggested ? "suggested" : l.status) as Tab,
@@ -61,6 +69,32 @@ export default async function StatementImportPage({ params, searchParams }: Page
   const visible = tab ? lines.filter((l) => l.shown === tab) : lines;
   const count = (s: Tab | null) => (s ? lines.filter((l) => l.shown === s).length : lines.length);
   const uniqueCount = lines.filter((l) => l.suggestion?.unique).length;
+  // Same rule as the ledger's bulkCandidates: unmatched, right kind and direction, nothing it could match.
+  const bulkCount = (kind: "fee" | "interest") =>
+    lines.filter(
+      (l) =>
+        l.status === "unmatched" &&
+        l.kind === kind &&
+        l.direction === (kind === "fee" ? "debit" : "credit") &&
+        (l.suggestion?.candidates.length ?? 0) === 0,
+    ).length;
+  const feeCount = bulkCount("fee");
+  const interestCount = bulkCount("interest");
+  const tc = await getTranslations("statements.create");
+  // What the create form starts with, from what the bank wrote.
+  const defaultsFor = (l: (typeof lines)[number]): CreateDefaults => ({
+    type:
+      l.kind === "cheque" ? "cheque"
+      : l.kind === "fee" ? "fee"
+      : l.kind === "interest" ? "interest"
+      : l.kind === "account_transfer" ? "internal"
+      : l.direction === "credit" ? "transfer_in"
+      : "transfer_out",
+    partyName: l.counterparty ?? "",
+    description: l.description.slice(0, 200),
+    // The serial printed on the cheque, the same format as cheques entered by hand.
+    chequeNumber: l.chequeRef ? chequeSerial(l.chequeRef) : "",
+  });
 
   const day = (d: string) => formatDay(d, locale);
   const typeLabel = (type: string) => tl(`types.${type as TransactionType}`);
@@ -101,18 +135,44 @@ export default async function StatementImportPage({ params, searchParams }: Page
         </dl>
       </div>
 
-      {canWrite && uniqueCount > 0 && (
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <InlineAction
-            action={confirmUniqueAction}
-            transactionId={id}
-            idName="importId"
-            tone="normal"
-            label={tm("confirmUnique", { count: uniqueCount })}
-            confirmLabel={tm("confirmUnique", { count: uniqueCount })}
-            keepLabel={tm("keep")}
-            note={tm("confirmUniqueNote")}
-          />
+      {canWrite && uniqueCount + feeCount + interestCount > 0 && (
+        <div className="flex flex-wrap items-start gap-6 text-sm">
+          {uniqueCount > 0 && (
+            <InlineAction
+              action={confirmUniqueAction}
+              transactionId={id}
+              idName="importId"
+              tone="normal"
+              label={tm("confirmUnique", { count: uniqueCount })}
+              confirmLabel={tm("confirmUnique", { count: uniqueCount })}
+              keepLabel={tm("keep")}
+              note={tm("confirmUniqueNote")}
+            />
+          )}
+          {feeCount > 0 && (
+            <InlineAction
+              action={createAllFeesAction}
+              transactionId={id}
+              idName="importId"
+              tone="normal"
+              label={tc("bulkFees", { count: feeCount })}
+              confirmLabel={tc("bulkFees", { count: feeCount })}
+              keepLabel={tc("keep")}
+              note={tc("bulkNote")}
+            />
+          )}
+          {interestCount > 0 && (
+            <InlineAction
+              action={createAllInterestAction}
+              transactionId={id}
+              idName="importId"
+              tone="normal"
+              label={tc("bulkInterest", { count: interestCount })}
+              confirmLabel={tc("bulkInterest", { count: interestCount })}
+              keepLabel={tc("keep")}
+              note={tc("bulkNote")}
+            />
+          )}
         </div>
       )}
 
@@ -185,7 +245,19 @@ export default async function StatementImportPage({ params, searchParams }: Page
                           {(l.matchedParty ?? l.matchedDescription) && <> · <bdi>{l.matchedParty ?? l.matchedDescription}</bdi></>}
                           {" · "}<span className="tabular-nums">{day(l.matchedDate!)}</span>
                           {l.matchClearedCheque && <div className="text-foreground-secondary">{tm("clearedByMatch")}</div>}
+                          {l.matchOrigin === "created" && <div className="text-foreground-secondary">{tc("createdNote")}</div>}
                         </div>
+                      )}
+                      {canWrite && l.status === "created" && (
+                        <InlineAction
+                          action={unmatchAction}
+                          transactionId={l.id}
+                          idName="lineId"
+                          label={tc("undo")}
+                          confirmLabel={tc("confirmUndo")}
+                          keepLabel={tc("keep")}
+                          note={tc("undoNote")}
+                        />
                       )}
                       {canWrite && l.status === "matched" && (
                         <InlineAction
@@ -209,6 +281,15 @@ export default async function StatementImportPage({ params, searchParams }: Page
                             )
                           ) : (
                             <p className="text-xs text-foreground-secondary">{tm("noCandidate")}</p>
+                          )}
+                          {canWrite && (
+                            <CreateFromLineForm
+                              lineId={l.id}
+                              direction={l.direction}
+                              defaults={defaultsFor(l)}
+                              otherAccounts={otherAccounts}
+                              canIssueCheques={canIssueCheques}
+                            />
                           )}
                           {canWrite && (
                             <InlineAction

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CREDIT_TYPES } from "../../server/db/schema.ts";
-import { chequeNumberMatches, type MatchLine, type MatchRow, scoreCandidate, suggestMatches } from "./match.ts";
+import { chequeNumberMatches, chequeSerial, type MatchLine, type MatchRow, scoreCandidate, suggestMatches } from "./match.ts";
 
 const line = (over: Partial<MatchLine> = {}): MatchLine => ({
   id: "L1", bookingDate: "2026-11-05", direction: "credit", amountMinor: 700000,
@@ -20,6 +20,13 @@ test("cheque numbers match on trailing digits, ignoring our leading zeros", () =
   assert.equal(chequeNumberMatches("17000208006", "07817000208006"), true);
   assert.equal(chequeNumberMatches("006", "07817000208006"), null); // too short to decide
   assert.equal(chequeNumberMatches("A-208006", "07817000208006"), true);
+});
+
+test("the cheque serial is the trailing digits of the bank reference, and matches it", () => {
+  assert.equal(chequeSerial("07817000208006"), "208006");
+  assert.equal(chequeSerial("078-17000-208006"), "208006");
+  assert.equal(chequeSerial("12345"), "12345");
+  assert.equal(chequeNumberMatches(chequeSerial("07817000208006"), "07817000208006"), true);
 });
 
 test("amount, direction and kind must agree", () => {
