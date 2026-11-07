@@ -69,7 +69,8 @@
     "accounts": "Accounts",
     "menu": "Menu",
     "closeMenu": "Close",
-    "inbox": "AI Inbox"
+    "inbox": "AI Inbox",
+    "statements": "Statements"
   },
   "movement": {
     "title": "New movement",
@@ -432,5 +433,96 @@
     "unsupported": "I can read text messages and photos only.",
     "downloadFailed": "Could not get the photo from Telegram. Nothing was saved: please send it again.",
     "failed": "Something went wrong. Nothing was saved: please try again later."
+  },
+  "statements": {
+    "title": "Bank statements",
+    "intro": "Upload a bank statement (MT940) to check it against the ledger. Nothing changes in the ledger by importing.",
+    "upload": {
+      "label": "Statement file",
+      "choose": "Choose file",
+      "change": "Change file",
+      "preview": "Check file",
+      "checking": "Checking…",
+      "import": "Import",
+      "importing": "Importing…",
+      "cancel": "Cancel",
+      "imported": "Statement imported.",
+      "open": "Open"
+    },
+    "preview": {
+      "title": "Before importing",
+      "account": "Account",
+      "period": "Period",
+      "opening": "Opening balance",
+      "closing": "Closing balance",
+      "lines": "{count, plural, one {# line} other {# lines}}",
+      "newLines": "{count} new",
+      "skipped": "{count} already imported",
+      "beforeStart": "{count} before the start date",
+      "noWarnings": "All checks passed."
+    },
+    "warnings": {
+      "startsAfterOpening": "This is the first statement for this account, but it starts on {statementDate}. It should start on or before {openingDate} to check the opening balance.",
+      "openingBalanceMismatch": "On {date} the statement shows {statement}, but the account opening balance is {app}. The opening balance is not changed automatically.",
+      "gap": "Days between {from} and {to} are not covered by any imported statement.",
+      "previousBalanceMismatch": "On {date} this statement shows {statement}, but the previous statement closed at {previous}.",
+      "nothingNew": "Every line of this statement was already imported."
+    },
+    "errors": {
+      "noFile": "Choose a statement file.",
+      "fileTooLarge": "The file is too large for a statement.",
+      "accountUnknown": "No active account has the account number in this statement.",
+      "empty": "The file is empty.",
+      "notMt940": "This is not an MT940 statement.",
+      "missingTag": "The statement is incomplete ({detail} is missing).",
+      "badBalance": "A balance in the statement could not be read.",
+      "badLine": "A statement line could not be read ({detail}).",
+      "badAmount": "An amount in the statement could not be read ({detail}).",
+      "currencyMismatch": "The opening and closing balances have different currencies.",
+      "unbalanced": "The lines do not add up from the opening to the closing balance, so the file was not read correctly. Nothing was imported."
+    },
+    "list": {
+      "title": "Imported statements",
+      "empty": "No statements imported yet.",
+      "account": "Account",
+      "period": "Period",
+      "closing": "Closing balance",
+      "lines": "Lines",
+      "toReview": "To review",
+      "imported": "Imported",
+      "details": "Details",
+      "delete": "Delete",
+      "confirmDelete": "Delete import",
+      "keep": "Keep",
+      "deleteNote": "Removes this statement and its lines. The ledger is not changed."
+    },
+    "detail": {
+      "back": "All statements",
+      "lineNo": "#",
+      "date": "Date",
+      "valueDate": "Value date",
+      "description": "Description",
+      "kind": "Kind",
+      "amount": "Amount",
+      "status": "Status",
+      "all": "All",
+      "empty": "No lines here."
+    },
+    "kinds": {
+      "incoming_transfer": "Incoming transfer",
+      "outgoing_transfer": "Outgoing transfer",
+      "account_transfer": "Account transfer",
+      "cheque": "Cheque",
+      "fee": "Bank fee",
+      "interest": "Interest",
+      "other": "Other"
+    },
+    "statuses": {
+      "unmatched": "Unmatched",
+      "matched": "Matched",
+      "created": "Created",
+      "ignored": "Ignored",
+      "before_start": "Before start date"
+    }
   }
 }

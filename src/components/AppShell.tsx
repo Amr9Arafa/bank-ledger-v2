@@ -56,6 +56,7 @@ export default async function AppShell({ children }: { children: ReactNode }) {
             items={[
               { href: "/", label: t("home") },
               { href: "/cheques", label: t("cheques") },
+  { href: "/statements", label: t("statements") },
               ...(canWrite
                 ? [
                     {
