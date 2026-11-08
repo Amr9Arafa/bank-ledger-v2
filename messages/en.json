@@ -450,7 +450,7 @@
   },
   "statements": {
     "title": "Bank statements",
-    "intro": "Upload a bank statement (MT940) to check it against the ledger. Nothing changes in the ledger by importing.",
+    "intro": "Upload a bank statement (NBE: MT940, CIB: CSV) to check it against the ledger. Nothing changes in the ledger by importing.",
     "upload": {
       "label": "Statement file",
       "choose": "Choose file",
@@ -487,13 +487,15 @@
       "fileTooLarge": "The file is too large for a statement.",
       "accountUnknown": "No active account has the account number in this statement.",
       "empty": "The file is empty.",
-      "notMt940": "This is not an MT940 statement.",
       "missingTag": "The statement is incomplete ({detail} is missing).",
       "badBalance": "A balance in the statement could not be read.",
       "badLine": "A statement line could not be read ({detail}).",
       "badAmount": "An amount in the statement could not be read ({detail}).",
       "currencyMismatch": "The opening and closing balances have different currencies.",
-      "unbalanced": "The lines do not add up from the opening to the closing balance, so the file was not read correctly. Nothing was imported."
+      "unbalanced": "The lines do not add up from the opening to the closing balance, so the file was not read correctly. Nothing was imported.",
+      "unknownFormat": "This file is not a supported statement (NBE MT940 or CIB CSV).",
+      "badDate": "A date in the statement could not be read ({detail}).",
+      "missingColumn": "The statement is missing the column \"{detail}\"."
     },
     "list": {
       "title": "Imported statements",

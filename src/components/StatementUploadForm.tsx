@@ -69,7 +69,7 @@ export default function StatementUploadForm() {
           {file ? t("upload.change") : t("upload.choose")}
           <input
             type="file"
-            accept=".mt940,.sta,.txt,.940"
+            accept=".mt940,.sta,.txt,.940,.csv"
             aria-label={t("upload.label")}
             className="sr-only"
             disabled={pending}

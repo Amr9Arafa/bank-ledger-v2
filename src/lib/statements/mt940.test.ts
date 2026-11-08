@@ -218,7 +218,7 @@ test("rejects bad input", () => {
     return r.error;
   };
   assert.equal(errorOf("  "), "empty");
-  assert.equal(errorOf("Date,Amount\n2026-11-02,5"), "notMt940");
+  assert.equal(errorOf("Date,Amount\n2026-11-02,5"), "unknownFormat");
   assert.equal(errorOf(FIXTURE.replace(/:25:.*\n/, "")), "missingTag");
   assert.equal(errorOf(FIXTURE.replace(":60F:C261031EGP1000,00", ":60F:C261031EGP1000.00")), "badBalance");
   assert.equal(errorOf(FIXTURE.replace(":62F:C261107EGP", ":62F:C261107USD")), "currencyMismatch");

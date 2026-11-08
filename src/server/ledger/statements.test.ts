@@ -170,7 +170,7 @@ test("wrong account, unsupported bank and foreign currency are rejected", { skip
   await inRollback(async (tx) => {
     const { other, importIt } = await setup(tx);
     await assert.rejects(importIt(A(), other.id), rejects("statementAccountMismatch"));
-    await assert.rejects(importIt({ ...A(), bank: "cib" }), rejects("statementBankUnsupported"));
+    await assert.rejects(importIt({ ...A(), bank: "unknown" }), rejects("statementBankUnsupported"));
     await assert.rejects(importIt({ ...A(), currency: "USD" }), rejects("statementCurrency"));
   });
 });
@@ -431,7 +431,7 @@ test("create every kind of record from statement lines, then delete the import t
 
     const create = async (input: Parameters<typeof m.createFromLine>[1]) => (await m.createFromLine(user, input, tx)).transactionId;
     const ids = [
-      await create({ lineId: cheque.id, type: "cheque", chequeNumber: chequeSerial(cheque.chequeRef!), partyName: "Old payee", notes: "issued before start date" }),
+      await create({ lineId: cheque.id, type: "cheque", chequeNumber: chequeSerial(cheque.chequeRef!, "nbe"), partyName: "Old payee", notes: "issued before start date" }),
       await create({ lineId: feeL.id, type: "fee", description: feeL.description, notes: null }),
       await create({ lineId: int1.id, type: "interest", description: int1.description, notes: null }),
       await create({ lineId: internal.id, type: "internal", otherAccountId: other.id, notes: null }),
@@ -530,7 +530,7 @@ test("an old cheque can be created again after its import was deleted and re-imp
     const createOldCheque = async () => {
       const { importId } = await importIt(M4());
       const [cheque] = await m.listStatementLines(user.organizationId, importId, null, tx);
-      await m.createFromLine(user, { lineId: cheque.id, type: "cheque", chequeNumber: chequeSerial(cheque.chequeRef!), partyName: "P", notes: null }, tx);
+      await m.createFromLine(user, { lineId: cheque.id, type: "cheque", chequeNumber: chequeSerial(cheque.chequeRef!, "nbe"), partyName: "P", notes: null }, tx);
       return importId;
     };
     await m.deleteImport(user, await createOldCheque(), tx);
@@ -544,7 +544,7 @@ test("an old cheque can be created again after its import was deleted and re-imp
 async function createAll(m: Awaited<ReturnType<typeof load>>, user: { id: string; organizationId: string }, importId: string, tx: Executor, otherAccountId: string) {
   for (const l of await m.listStatementLines(user.organizationId, importId, "unmatched", tx)) {
     const input =
-      l.kind === "cheque" ? { lineId: l.id, type: "cheque" as const, chequeNumber: chequeSerial(l.chequeRef!), partyName: "P", notes: null }
+      l.kind === "cheque" ? { lineId: l.id, type: "cheque" as const, chequeNumber: chequeSerial(l.chequeRef!, "nbe"), partyName: "P", notes: null }
       : l.kind === "fee" || l.kind === "interest" ? { lineId: l.id, type: l.kind, description: l.description, notes: null }
       : l.kind === "account_transfer" ? { lineId: l.id, type: "internal" as const, otherAccountId, notes: null }
       : { lineId: l.id, type: l.direction === "credit" ? ("transfer_in" as const) : ("transfer_out" as const), partyName: "X", notes: null };
@@ -654,5 +654,56 @@ test("an account's opening balance and date are locked once it has statements", 
     await assert.rejects(m.updateBankAccount(user, account.id, { ...base, openingBalanceMinor: 1 }, tx), rejects("accountHasStatements"));
     await assert.rejects(m.updateBankAccount(user, account.id, { ...base, openingDate: "2026-11-01" }, tx), rejects("accountHasStatements"));
     await m.updateBankAccount(user, account.id, { ...base, name: "Renamed" }, tx);
+  });
+});
+
+// ---- CIB (M6) ----
+
+// A synthetic CIB CSV export for the "other" account (number 999, opening balance 0).
+function cibStatement(rows: string[][]): ParsedStatement {
+  const q = (cells: string[]) => cells.map((c) => `" ${c} "`).join(",") + ",";
+  const text = [
+    "﻿",
+    q(["Account No.", "Type", "Status", "Account Currency", "IBAN Number", "Date From", "Date To", "Ledger Balance", "Available Balance"]),
+    q(["999", "Current Account", "Active", "EGP", "EG00", "01/11/2026", "05/11/2026", "0.00", "0.00"]),
+    '"",',
+    q(["Posting Date", "Value Date", "BackOffice Reference", "Description", "Related Reference", "Cheque Number", "Withdrawal", "Deposit", "Balance"]),
+    ...rows.map(q),
+  ].join("\n");
+  const r = parseStatementFile(text);
+  assert.ok(r.ok, JSON.stringify(r));
+  sourceText.set(r.statements[0].statementRef, text);
+  return r.statements[0];
+}
+
+test("an internal transfer between NBE and CIB: each bank's line matches its own half", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, other, importIt } = await setup(tx);
+    // NBE: the 100.00 account-to-account debit on 11-04 becomes an internal transfer to CIB.
+    const nbe = await importIt(M4());
+    const nbeLine = (await m.listStatementLines(user.organizationId, nbe.importId, null, tx))[4];
+    const { transactionId: outHalf } = await m.createFromLine(user, { lineId: nbeLine.id, type: "internal", otherAccountId: other.id, notes: null }, tx);
+
+    // CIB: the same 100.00 arrives on 11-04, described in CIB's own words.
+    const cib = await importIt(
+      cibStatement([["04/11/2026", "04/11/2026", "FT0009", "FT0009 - TRANSFER FROM OWN ACCOUNT", " ", " ", " ", "100.00", "100.00"]]),
+      other.id,
+    );
+    const [cibLine] = await m.listStatementLines(user.organizationId, cib.importId, null, tx);
+    assert.equal(cibLine.direction, "credit");
+    const { suggestions, rows } = await m.getImportSuggestions(user.organizationId, cib.importId, tx);
+    const s = suggestions.get(cibLine.id)!;
+    assert.equal(rows.get(s.suggested!.transactionId)!.type, "internal_in");
+    assert.equal(s.unique, true);
+    await m.confirmMatch(user, { lineId: cibLine.id, transactionId: s.suggested!.transactionId }, tx);
+
+    // The CIB statement now reconciles: its opening (0.00) matches and every line is accounted for.
+    assert.deepEqual(await m.importWarnings(user.organizationId, cib.importId, tx), []);
+    const check = await m.closingCheck(user.organizationId, cib.importId, tx);
+    assert.deepEqual([check.differenceMinor, check.unexplainedMinor, check.reconciled], [0, 0, true]);
+    // Both halves are matched, each by its own bank's line.
+    const matched = await tx.select().from(m.statementMatches);
+    const halves = matched.filter((x) => [outHalf, s.suggested!.transactionId].includes(x.transactionId));
+    assert.equal(halves.length, 2);
   });
 });

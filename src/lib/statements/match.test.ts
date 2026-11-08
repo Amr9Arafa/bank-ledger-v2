@@ -23,10 +23,10 @@ test("cheque numbers match on trailing digits, ignoring our leading zeros", () =
 });
 
 test("the cheque serial is the trailing digits of the bank reference, and matches it", () => {
-  assert.equal(chequeSerial("07817000208006"), "208006");
-  assert.equal(chequeSerial("078-17000-208006"), "208006");
-  assert.equal(chequeSerial("12345"), "12345");
-  assert.equal(chequeNumberMatches(chequeSerial("07817000208006"), "07817000208006"), true);
+  assert.equal(chequeSerial("07817000208006", "nbe"), "208006");
+  assert.equal(chequeSerial("078-17000-208006", "nbe"), "208006");
+  assert.equal(chequeSerial("12345", "nbe"), "12345");
+  assert.equal(chequeNumberMatches(chequeSerial("07817000208006", "nbe"), "07817000208006"), true);
 });
 
 test("amount, direction and kind must agree", () => {

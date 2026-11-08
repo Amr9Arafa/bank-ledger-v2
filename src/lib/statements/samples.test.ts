@@ -6,7 +6,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { parseStatementFile } from "./index.ts";
 
 const dir = new URL("../../../sample/", import.meta.url);
-const files = existsSync(dir) ? readdirSync(dir).filter((f) => /\.(mt940|sta|txt)$/i.test(f)) : [];
+const files = existsSync(dir) ? readdirSync(dir).filter((f) => /\.(mt940|sta|txt|csv)$/i.test(f)) : [];
 
 test("real sample statements parse and balance", { skip: files.length === 0 && "no sample/ folder" }, () => {
   for (const file of files) {

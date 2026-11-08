@@ -9,6 +9,8 @@
 //   - for cheques with a number on both sides: the trailing digits agree.
 // Sender names differ between the bank and our records, so they are not used.
 
+import type { Bank } from "./types.ts";
+
 export const MATCH_WINDOW_DAYS = 4;
 
 export type MatchLine = {
@@ -69,15 +71,20 @@ const CREDIT = new Set(["transfer_in", "deposit", "internal_in", "interest"]);
 
 const dayNumber = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86_400_000;
 
-// How many trailing digits of the bank's cheque reference are the serial printed on our
-// cheques (NBE: "07817000208006" -> "208006"). Old cheques created from statement lines
-// are stored as this serial, the same format as cheques entered by hand, so the
-// next-number suggestion keeps working. Change here if the printed number differs.
-export const CHEQUE_SERIAL_DIGITS = 6;
+// Per bank, how many trailing digits of the statement's cheque reference are the serial
+// printed on our cheques. Old cheques created from statement lines are stored as this
+// serial, the same format as cheques entered by hand, so the next-number suggestion keeps
+// working. Change here if a printed number turns out different.
+//   nbe: "07817000208006" -> "208006" (branch + series prefix, then the serial).
+//   cib: null = the whole number. CIB's CSV has its own "Cheque Number" column, assumed to
+//        be the printed number until a CIB cheque appears in a real statement.
+export const CHEQUE_SERIAL_DIGITS: Record<Bank, number | null> = { nbe: 6, cib: null, unknown: null };
 
-// The serial part of a bank cheque reference: its last CHEQUE_SERIAL_DIGITS digits.
-export function chequeSerial(statementRef: string): string {
-  return statementRef.replace(/\D/g, "").slice(-CHEQUE_SERIAL_DIGITS);
+// The serial part of a bank's cheque reference (digits only).
+export function chequeSerial(statementRef: string, bank: Bank): string {
+  const digits = statementRef.replace(/\D/g, "");
+  const n = CHEQUE_SERIAL_DIGITS[bank];
+  return n === null ? digits : digits.slice(-n);
 }
 
 // Cheque numbers: the number we store (as typed from the cheque) must equal the trailing

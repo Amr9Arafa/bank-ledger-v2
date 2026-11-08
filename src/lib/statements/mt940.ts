@@ -1,6 +1,6 @@
 // SWIFT MT940 parser, bank-independent. Bank-specific reading of the :86: text lives in
 // separate enrichers (nbe.ts). Pure: no database, no I/O except hashing.
-import { createHash } from "node:crypto";
+import { lineKeyer } from "./lineKey.ts";
 import type { Direction, ParsedStatement, ParseResult, StatementLine } from "./types.ts";
 
 type Tag = { tag: string; value: string };
@@ -107,10 +107,6 @@ const DIRECTION: Record<string, Direction> = { C: "credit", D: "debit", RC: "deb
 type Fail = { ok: false; error: Extract<ParseResult, { ok: false }>["error"]; detail?: string };
 const fail = (error: Fail["error"], detail?: string): Fail => ({ ok: false, error, detail });
 
-function hashKey(parts: (string | number)[]): string {
-  return createHash("sha256").update(parts.join("\u001f")).digest("hex").slice(0, 32);
-}
-
 function parseStatement(items: Tag[], bic: string | null): ParsedStatement | Fail {
   const one = (...names: string[]) => items.find((t) => names.includes(t.tag))?.value.trim();
   const statementRef = one("20");
@@ -129,7 +125,7 @@ function parseStatement(items: Tag[], bic: string | null): ParsedStatement | Fai
   if (opening.currency !== closing.currency) return fail("currencyMismatch");
 
   const lines: StatementLine[] = [];
-  const seen = new Map<string, number>();
+  const keyOf = lineKeyer(accountNumber);
   for (let i = 0; i < items.length; i++) {
     if (items[i].tag !== "61") continue;
     const lineNo = lines.length + 1;
@@ -152,11 +148,6 @@ function parseStatement(items: Tag[], bic: string | null): ParsedStatement | Fai
     const direction = DIRECTION[m[3]];
     const typeCode = m[6].slice(1);
 
-    // Identical lines inside one statement get #1, #2... so they stay distinct but stable.
-    const base = hashKey([accountNumber, bookingDate, valueDate, direction, amountMinor, typeCode, bankRef, description]);
-    const occurrence = (seen.get(base) ?? 0) + 1;
-    seen.set(base, occurrence);
-
     lines.push({
       lineNo,
       bookingDate,
@@ -171,7 +162,7 @@ function parseStatement(items: Tag[], bic: string | null): ParsedStatement | Fai
       kind: "other",
       counterparty: null,
       chequeRef: null,
-      lineKey: `${base}#${occurrence}`,
+      lineKey: keyOf({ bookingDate, valueDate, direction, amountMinor, typeCode, bankRef, description }),
     });
   }
 
@@ -224,6 +215,6 @@ export function parseMt940(input: string): ParseResult {
       statements.push(result);
     }
   }
-  if (statements.length === 0) return fail("notMt940");
+  if (statements.length === 0) return fail("unknownFormat");
   return { ok: true, statements };
 }

@@ -33,7 +33,7 @@ export type StatementLine = {
 
 export type ParsedStatement = {
   bank: Bank;
-  format: "mt940";
+  format: "mt940" | "csv";
   bic: string | null;
   statementRef: string; // :20:
   accountNumber: string; // :25:
@@ -48,7 +48,9 @@ export type ParsedStatement = {
 
 export type StatementError =
   | "empty"
-  | "notMt940"
+  | "unknownFormat"
+  | "badDate"
+  | "missingColumn"
   | "missingTag"
   | "badBalance"
   | "badLine"

@@ -138,8 +138,8 @@ async function analyze(tx: Executor, user: LedgerUser, bankAccountId: string, st
     .where(and(eq(bankAccounts.id, bankAccountId), eq(bankAccounts.organizationId, user.organizationId)));
   if (!account) throw new LedgerError("accountNotFound", "bankAccountId");
   if (account.archivedAt) throw new LedgerError("accountArchived", "bankAccountId");
-  // Only NBE has a line reader so far; CIB comes with its own samples (M6).
-  if (statement.bank !== "nbe") throw new LedgerError("statementBankUnsupported");
+  // Banks with a line reader: NBE (MT940) and CIB (CSV). Unknown banks are refused.
+  if (statement.bank !== "nbe" && statement.bank !== "cib") throw new LedgerError("statementBankUnsupported");
   if (statement.currency !== "EGP") throw new LedgerError("statementCurrency");
   if (normalizeAccountNumber(statement.accountNumber) !== normalizeAccountNumber(account.accountNumber)) {
     throw new LedgerError("statementAccountMismatch", "bankAccountId");
@@ -215,7 +215,7 @@ export async function importStatement(
       .values({
         organizationId: user.organizationId,
         bankAccountId: account.id,
-        bank: "nbe",
+        bank: s.bank as "nbe" | "cib", // analyze() refused any other bank
         format: s.format,
         fileName: input.fileName,
         statementRef: s.statementRef,

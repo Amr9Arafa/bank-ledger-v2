@@ -112,7 +112,7 @@ export default async function StatementImportPage({ params, searchParams }: Page
     partyName: l.counterparty ?? "",
     description: l.description.slice(0, 200),
     // The serial printed on the cheque, the same format as cheques entered by hand.
-    chequeNumber: l.chequeRef ? chequeSerial(l.chequeRef) : "",
+    chequeNumber: l.chequeRef ? chequeSerial(l.chequeRef, statement.bank) : "",
   });
 
   const day = (d: string) => formatDay(d, locale);
