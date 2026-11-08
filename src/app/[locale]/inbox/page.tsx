@@ -166,6 +166,7 @@ export default async function InboxPage({ params, searchParams }: PageProps<"/[l
                     )}
                     accounts={accounts}
                     warnedFields={entry.warnings.flatMap((w) => WARNING_FIELDS[w.code] ?? [])}
+                    today={today}
                   />
                   <div className="border-t border-border pt-3">
                     <InlineAction

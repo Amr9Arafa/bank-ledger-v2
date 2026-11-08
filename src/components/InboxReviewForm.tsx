@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { approveEntry, type ReviewFormState } from "@/actions/inbox";
 import { inputClass, primaryButton, useFieldHelpers } from "@/components/form";
+import type { Locale } from "@/i18n/routing";
+import { formatDay } from "@/lib/dates";
 import type { AccountOption } from "@/server/ledger/accounts";
 
 // The extracted fields of one AI Inbox entry, editable before approving. Approving runs the
@@ -14,6 +16,7 @@ export default function InboxReviewForm({
   defaults,
   accounts,
   warnedFields,
+  today,
 }: {
   entryId: string;
   type: "transaction" | "cheque";
@@ -21,10 +24,13 @@ export default function InboxReviewForm({
   accounts: AccountOption[];
   // Fields a warning is about: highlighted until the reviewer has looked at them.
   warnedFields: string[];
+  // YYYY-MM-DD in Cairo: a date after it gets a strong, explained highlight.
+  today: string;
 }) {
   const t = useTranslations("inbox");
   const tm = useTranslations("movement");
   const tc = useTranslations("cheque");
+  const locale = useLocale() as Locale;
   const [state, formAction, pending] = useActionState<ReviewFormState, FormData>(approveEntry, {
     errors: {},
     values: defaults,
@@ -33,10 +39,20 @@ export default function InboxReviewForm({
   const v = state.values;
   // The party label follows the direction while the reviewer edits it.
   const [direction, setDirection] = useState(v.type ?? "");
+  // The date as currently typed: a future date is easy to miss (a transfer receipt can show
+  // the settlement date), so it is flagged loudly until it is corrected.
+  const [date, setDate] = useState(v.transactionDate ?? "");
+  const futureDate = date !== "" && date > today;
 
   // Amber ring on fields a warning points at, unless they already show an error.
   const cls = (name: string, extra = "") =>
     `${inputClass} ${extra} ${warnedFields.includes(name) && !state.errors[name] ? "ring-1 ring-warning" : ""}`;
+
+  const futureDateNote = futureDate && (
+    <p role="alert" className="rounded-md border border-warning bg-warning-tint px-3 py-2 text-sm font-medium text-warning">
+      {t("futureDateNote", { date: formatDay(date, locale) })}
+    </p>
+  );
 
   const accountSelect = (options: AccountOption[]) => (
     <select
@@ -87,7 +103,12 @@ export default function InboxReviewForm({
       {...a11y(name)}
       defaultValue={v[name] ?? ""}
       required={required}
-      className={cls(name)}
+      onChange={name === "transactionDate" ? (e) => setDate(e.currentTarget.value) : undefined}
+      className={
+        name === "transactionDate" && futureDate && !state.errors[name]
+          ? `${inputClass} ring-2 ring-warning bg-warning-tint`
+          : cls(name)
+      }
     />
   );
 
@@ -135,6 +156,7 @@ export default function InboxReviewForm({
             {field("transactionDate", tm("date"), dateInput("transactionDate"))}
             {field("amountMinor", tm("amount"), amountInput())}
           </div>
+          {futureDateNote}
         </>
       ) : (
         <>
@@ -154,6 +176,7 @@ export default function InboxReviewForm({
             {field("transactionDate", tc("issueDate"), dateInput("transactionDate"))}
             {field("dueDate", `${tc("dueDate")} ${tm("optional")}`, dateInput("dueDate", false))}
           </div>
+          {futureDateNote}
         </>
       )}
 

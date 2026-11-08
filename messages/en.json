@@ -428,7 +428,8 @@
       "aiFailed": "The AI service is not set up correctly, so trying again won't help. Please tell an admin.",
       "uploadFailed": "The photo couldn't be saved. Nothing was saved: please try again.",
       "nothingFound": "No amount and no direction (money in or out) found. Nothing was saved: write the amount and whether money came in or went out."
-    }
+    },
+    "futureDateNote": "{date} is after today. For a bank transfer, use the day our account was debited: a receipt may show a later settlement date."
   },
   "telegram": {
     "help": "Send me a message about a bank transfer or a cheque we issued, or a photo of a cheque. I will read it and put it in the AI Inbox, where it waits for approval before it counts in any balance.",
