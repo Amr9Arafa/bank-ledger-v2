@@ -295,6 +295,10 @@ export const STATEMENT_LINE_STATUSES = [
   "before_start",
 ] as const;
 export const STATEMENT_MATCH_ORIGINS = ["matched", "created"] as const;
+// A reviewer's call on an unmatched line's suggestions (null: none yet).
+//   needs_decision: "Not the same": never a sure match, so "Confirm all" skips it.
+//   not_in_app: "Not in the app": no suggestions at all; the line needs a record created.
+export const STATEMENT_REVIEW_STATES = ["needs_decision", "not_in_app"] as const;
 
 // One statement (one :20: ... :62F: block) for one account.
 export const statementImports = pgTable(
@@ -372,6 +376,7 @@ export const statementLines = pgTable(
     lineKey: text("line_key").notNull(),
     status: text("status", { enum: STATEMENT_LINE_STATUSES }).notNull(),
     ignoreReason: text("ignore_reason"),
+    reviewState: text("review_state", { enum: STATEMENT_REVIEW_STATES }),
     createdAt: createdAt(),
     updatedBy: uuid("updated_by").references(() => users.id),
     updatedAt: updatedAt(),
@@ -391,6 +396,16 @@ export const statementLines = pgTable(
     check(
       "statement_lines_ignore_reason_check",
       sql`(${t.status} = 'ignored') = (${t.ignoreReason} is not null)`,
+    ),
+    check(
+      "statement_lines_review_state_check",
+      sql`${t.reviewState} is null or ${t.reviewState} in ('needs_decision', 'not_in_app')`,
+    ),
+    // Only an unmatched line carries a review state: confirming, creating, ignoring and
+    // every undo clear it.
+    check(
+      "statement_lines_review_state_unmatched",
+      sql`${t.reviewState} is null or ${t.status} = 'unmatched'`,
     ),
     uniqueIndex("statement_lines_key_per_account").on(t.bankAccountId, t.lineKey),
     uniqueIndex("statement_lines_import_line").on(t.importId, t.lineNo),

@@ -3,11 +3,14 @@
 import { type ReactNode, useActionState, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
+  backToSuggestionsAction,
   confirmMatchAction,
   confirmUniqueAction,
   createAllFeesAction,
   createAllInterestAction,
   ignoreLineAction,
+  notInAppAction,
+  notTheSameAction,
   unignoreLineAction,
   unmatchAction,
 } from "@/actions/statements";
@@ -49,6 +52,7 @@ export type ReviewLine = {
   chequeRef: string | null;
   status: "unmatched" | "matched" | "created" | "ignored" | "before_start";
   ignoreReason: string | null;
+  reviewState: "needs_decision" | "not_in_app" | null; // the reviewer's saved call
   sure: boolean; // exactly one candidate that no other line wants, not dated later
   candidates: ReviewCandidate[]; // suggested first
   matched: {
@@ -72,18 +76,16 @@ type Props = {
 };
 
 // The import page as four steps: sure matches, decisions, missing records, done.
-// "Not in the app" only moves a line on this screen; nothing is saved until a record is
-// created or the line is ignored.
+// The reviewer's calls ("Not the same", "Not in the app") are saved on the line, so the
+// steps are the same after a reload. The server already applies them: a "Not the same"
+// line is never sure, and a "Not in the app" line has no candidates.
 export default function StatementReview({ importId, lines, canWrite, otherAccounts, canIssueCheques, bulk }: Props) {
   const t = useTranslations("statements.review");
-  // Lines sent to "Missing in the app" from step 2. Kept while the page is open (actions
-  // refresh it in place); a full reload shows them as suggestions again.
-  const [notInApp, remember] = useState<string[]>([]);
 
   const open = lines.filter((l) => l.status === "unmatched");
-  const sure = open.filter((l) => l.sure && !notInApp.includes(l.id));
-  const decide = open.filter((l) => !l.sure && l.candidates.length > 0 && !notInApp.includes(l.id));
-  const missing = open.filter((l) => l.candidates.length === 0 || notInApp.includes(l.id));
+  const sure = open.filter((l) => l.sure);
+  const decide = open.filter((l) => !l.sure && l.candidates.length > 0);
+  const missing = open.filter((l) => l.candidates.length === 0);
   const done = lines.filter((l) => l.status === "matched" || l.status === "created" || l.status === "ignored");
   const beforeStart = lines.filter((l) => l.status === "before_start").length;
 
@@ -114,6 +116,12 @@ export default function StatementReview({ importId, lines, canWrite, otherAccoun
                 {sure.map((l) => (
                   <li key={l.id} className="rounded-md border border-border p-3">
                     <Comparison line={l} candidate={l.candidates[0]} />
+                    {canWrite && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <LineAction action={notTheSameAction} lineId={l.id} label={t("sure.notSame")} />
+                        <span className="text-xs text-foreground-tertiary">{t("sure.notSameHint")}</span>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -131,7 +139,7 @@ export default function StatementReview({ importId, lines, canWrite, otherAccoun
             <ul className="mt-3 space-y-3">
               {decide.map((l) => (
                 <li key={l.id}>
-                  <DecisionCard line={l} canWrite={canWrite} onNotInApp={() => remember([...notInApp, l.id])} />
+                  <DecisionCard line={l} canWrite={canWrite} />
                 </li>
               ))}
             </ul>
@@ -178,14 +186,10 @@ export default function StatementReview({ importId, lines, canWrite, otherAccoun
                 <li key={l.id} className="flex flex-col gap-3 p-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 flex-1">
                     <BankSummary line={l} />
-                    {notInApp.includes(l.id) && (
-                      <button
-                        type="button"
-                        onClick={() => remember(notInApp.filter((id) => id !== l.id))}
-                        className="mt-1 text-xs text-navy underline-offset-2 hover:underline"
-                      >
-                        {t("missing.backToSuggestions")}
-                      </button>
+                    {canWrite && l.reviewState === "not_in_app" && (
+                      <div className="mt-1">
+                        <LineAction action={backToSuggestionsAction} lineId={l.id} label={t("missing.backToSuggestions")} variant="link" />
+                      </div>
                     )}
                   </div>
                   {canWrite && (
@@ -353,7 +357,7 @@ function Comparison({ line, candidate }: { line: ReviewLine; candidate: ReviewCa
   );
 }
 
-function DecisionCard({ line, canWrite, onNotInApp }: { line: ReviewLine; canWrite: boolean; onNotInApp: () => void }) {
+function DecisionCard({ line, canWrite }: { line: ReviewLine; canWrite: boolean }) {
   const t = useTranslations("statements.review.decide");
   const te = useTranslations("errors");
   const { day, money } = useFormat();
@@ -378,28 +382,61 @@ function DecisionCard({ line, canWrite, onNotInApp }: { line: ReviewLine; canWri
         </label>
       )}
       {canWrite && (
-        <form action={formAction} className="mt-3 flex flex-wrap items-center gap-2">
-          <input type="hidden" name="lineId" value={line.id} />
-          <input type="hidden" name="transactionId" value={chosen.transactionId} />
-          <button type="submit" disabled={pending} className={`${primaryButton} px-3 py-1.5`}>
-            {t("same")}
-          </button>
-          {line.candidates.length > 1 && !picking && (
-            <button type="button" onClick={() => setPicking(true)} className={`${secondaryButton} px-3 py-1.5`}>
-              {t("different", { count: line.candidates.length - 1 })}
+        <div className="mt-3 flex flex-wrap items-start gap-2">
+          <form action={formAction} className="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="lineId" value={line.id} />
+            <input type="hidden" name="transactionId" value={chosen.transactionId} />
+            <button type="submit" disabled={pending} className={`${primaryButton} px-3 py-1.5`}>
+              {t("same")}
             </button>
-          )}
-          <button type="button" onClick={onNotInApp} className={`${secondaryButton} px-3 py-1.5`}>
-            {t("notInApp")}
-          </button>
+            {line.candidates.length > 1 && !picking && (
+              <button type="button" onClick={() => setPicking(true)} className={`${secondaryButton} px-3 py-1.5`}>
+                {t("different", { count: line.candidates.length - 1 })}
+              </button>
+            )}
+          </form>
+          <LineAction action={notInAppAction} lineId={line.id} label={t("notInApp")} />
           {state.error && (
             <p role="alert" className="w-full text-sm text-debit">
               {te(state.error as "notACandidate")}
             </p>
           )}
-        </form>
+        </div>
       )}
     </article>
+  );
+}
+
+// A one-click saved call on a line ("Not the same", "Not in the app", "Back to suggestions").
+function LineAction({
+  action,
+  lineId,
+  label,
+  variant = "button",
+}: {
+  action: (state: InlineActionState, formData: FormData) => Promise<InlineActionState>;
+  lineId: string;
+  label: string;
+  variant?: "button" | "link";
+}) {
+  const te = useTranslations("errors");
+  const [state, formAction, pending] = useActionState<InlineActionState, FormData>(action, {});
+  return (
+    <form action={formAction} className="inline-flex flex-col gap-1">
+      <input type="hidden" name="lineId" value={lineId} />
+      <button
+        type="submit"
+        disabled={pending}
+        className={variant === "link" ? "text-start text-xs text-navy underline-offset-2 hover:underline disabled:opacity-50" : `${secondaryButton} px-3 py-1.5`}
+      >
+        {label}
+      </button>
+      {state.error && (
+        <p role="alert" className="text-sm text-debit">
+          {te(state.error as "lineNotUnmatched")}
+        </p>
+      )}
+    </form>
   );
 }
 

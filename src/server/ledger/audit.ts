@@ -22,7 +22,11 @@ export type AuditAction =
   | "statement_match"
   | "statement_unmatch"
   | "statement_ignore"
-  | "statement_unignore";
+  | "statement_unignore"
+  // Review calls on a line's suggestions: target is the account.
+  | "statement_needs_decision"
+  | "statement_not_in_app"
+  | "statement_back_to_suggestions";
 
 type AuditEntry = {
   action: AuditAction;

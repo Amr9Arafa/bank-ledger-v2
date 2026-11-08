@@ -11,7 +11,9 @@ import {
 } from "../../lib/statements/match.ts";
 import { addDays } from "../../lib/cheques.ts";
 import { db, type Executor } from "../db/client.ts";
-import { statementLines, statementMatches, transactions } from "../db/schema.ts";
+import { type STATEMENT_REVIEW_STATES, statementLines, statementMatches, transactions } from "../db/schema.ts";
+
+type StatementReviewState = (typeof STATEMENT_REVIEW_STATES)[number];
 import { writeAudit } from "./audit.ts";
 import type { CreateFromLineInput } from "../../lib/validation.ts";
 import { cancelCheque, clearCheque, createCheque, unclearCheque } from "./cheques.ts";
@@ -34,6 +36,7 @@ const lineColumns = {
   chequeRef: statementLines.chequeRef,
   counterparty: statementLines.counterparty,
   status: statementLines.status,
+  reviewState: statementLines.reviewState,
 };
 
 // Suggestions for every unmatched line of one account, across all its imports, so two
@@ -47,6 +50,9 @@ async function suggestionsForAccount(organizationId: string, bankAccountId: stri
         eq(statementLines.organizationId, organizationId),
         eq(statementLines.bankAccountId, bankAccountId),
         eq(statementLines.status, "unmatched"),
+        // "Not in the app": the reviewer says no record exists, so the line gets no
+        // suggestions and cannot hold a record another line needs.
+        sql`${statementLines.reviewState} is distinct from 'not_in_app'`,
       ),
     );
   if (lines.length === 0) return { lines, suggestions: new Map<string, LineSuggestion>(), rows: new Map<string, CandidateRow>() };
@@ -85,7 +91,13 @@ async function suggestionsForAccount(organizationId: string, bankAccountId: stri
       ),
     );
 
-  return { lines, suggestions: suggestMatches(lines, rows), rows: new Map(rows.map((r) => [r.id, r])) };
+  const suggestions = suggestMatches(lines, rows);
+  // "Not the same": the reviewer doubts the suggestion, so it is never confirmed in bulk.
+  for (const line of lines) {
+    const s = suggestions.get(line.id);
+    if (s && line.reviewState === "needs_decision") suggestions.set(line.id, { ...s, unique: false });
+  }
+  return { lines, suggestions, rows: new Map(rows.map((r) => [r.id, r])) };
 }
 
 // Suggestions for the unmatched lines of one import, plus the candidate rows to show.
@@ -122,10 +134,41 @@ async function setLineStatus(
   status: "unmatched" | "matched" | "created" | "ignored",
   ignoreReason: string | null = null,
 ) {
+  // Any change of status clears the review state: a confirmed, created or ignored line has
+  // no suggestions to judge, and an undone one starts fresh (the database enforces this).
   await tx
     .update(statementLines)
-    .set({ status, ignoreReason, updatedBy: user.id, updatedAt: sql`now()` })
+    .set({ status, ignoreReason, reviewState: null, updatedBy: user.id, updatedAt: sql`now()` })
     .where(eq(statementLines.id, lineId));
+}
+
+const REVIEW_AUDIT = {
+  needs_decision: "statement_needs_decision",
+  not_in_app: "statement_not_in_app",
+} as const;
+
+// The reviewer's call on an unmatched line's suggestions: "Not the same" (needs_decision),
+// "Not in the app" (not_in_app), or "Back to suggestions" (null). Saves nothing else.
+export async function setReviewState(
+  user: LedgerUser,
+  input: { lineId: string; state: StatementReviewState | null },
+  database: Executor = db,
+) {
+  return database.transaction(async (tx) => {
+    const line = await lockLine(tx, user, input.lineId);
+    if (line.status !== "unmatched") throw new LedgerError("lineNotUnmatched");
+    if (line.reviewState === input.state) return;
+    await tx
+      .update(statementLines)
+      .set({ reviewState: input.state, updatedBy: user.id, updatedAt: sql`now()` })
+      .where(eq(statementLines.id, line.id));
+    await writeAudit(tx, user, {
+      action: input.state ? REVIEW_AUDIT[input.state] : "statement_back_to_suggestions",
+      bankAccountId: line.bankAccountId,
+      before: { lineId: line.id, reviewState: line.reviewState },
+      after: { lineId: line.id, reviewState: input.state },
+    });
+  });
 }
 
 // Confirms that `transactionId` is the ledger row for this line. The pairing is checked

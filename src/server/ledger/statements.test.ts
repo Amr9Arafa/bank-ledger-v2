@@ -707,3 +707,72 @@ test("an internal transfer between NBE and CIB: each bank's line matches its own
     assert.equal(halves.length, 2);
   });
 });
+
+// ---- Review calls on a line's suggestions ----
+
+test("'Not the same' keeps the suggestion but never confirms it in bulk", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, importIt } = await setup(tx);
+    const { importId } = await importIt(A());
+    const feeId = await fee(m, user, account.id, tx, "2026-11-03"); // same day: a sure match
+    const [, , feeLine] = await m.listStatementLines(user.organizationId, importId, null, tx);
+    assert.equal((await m.getImportSuggestions(user.organizationId, importId, tx)).suggestions.get(feeLine.id)!.unique, true);
+
+    await m.setReviewState(user, { lineId: feeLine.id, state: "needs_decision" }, tx);
+    const s = (await m.getImportSuggestions(user.organizationId, importId, tx)).suggestions.get(feeLine.id)!;
+    assert.equal(s.suggested?.transactionId, feeId); // still suggested, for step 2
+    assert.equal(s.unique, false);
+    assert.deepEqual(await m.confirmUniqueSuggestions(user, importId, tx), { confirmed: 0 });
+
+    const [line] = (await m.listStatementLines(user.organizationId, importId, null, tx)).filter((l) => l.id === feeLine.id);
+    assert.equal(line.reviewState, "needs_decision");
+    const audit = await tx.select().from(m.auditLog).where(sql`${m.auditLog.bankAccountId} = ${account.id}`);
+    assert.ok(audit.some((a) => a.action === "statement_needs_decision"));
+  });
+});
+
+test("'Not in the app' drops the suggestions until 'Back to suggestions', and frees the record", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, importIt } = await setup(tx);
+    const { importId } = await importIt(A());
+    await fee(m, user, account.id, tx, "2026-11-03");
+    const [, , feeLine] = await m.listStatementLines(user.organizationId, importId, null, tx);
+
+    await m.setReviewState(user, { lineId: feeLine.id, state: "not_in_app" }, tx);
+    assert.equal((await m.getImportSuggestions(user.organizationId, importId, tx)).suggestions.has(feeLine.id), false);
+    // It now counts for "create all fees", like any line with nothing to match.
+    assert.deepEqual((await m.bulkCandidates(user.organizationId, importId, "fee", tx)).map((l) => l.id), [feeLine.id]);
+
+    await m.setReviewState(user, { lineId: feeLine.id, state: null }, tx);
+    assert.ok((await m.getImportSuggestions(user.organizationId, importId, tx)).suggestions.get(feeLine.id)?.suggested);
+    const actions = (await tx.select().from(m.auditLog).where(sql`${m.auditLog.bankAccountId} = ${account.id}`)).map((a) => a.action);
+    assert.ok(actions.includes("statement_not_in_app") && actions.includes("statement_back_to_suggestions"));
+  });
+});
+
+test("creating, ignoring and every undo clear the review state; only unmatched lines carry one", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, importIt } = await setup(tx);
+    const { importId } = await importIt(A());
+    const [, , feeLine] = await m.listStatementLines(user.organizationId, importId, null, tx);
+    const stateOf = async () => (await m.listStatementLines(user.organizationId, importId, null, tx)).find((l) => l.id === feeLine.id)!;
+
+    await m.setReviewState(user, { lineId: feeLine.id, state: "not_in_app" }, tx);
+    await m.createFromLine(user, { lineId: feeLine.id, type: "fee", description: "Fee", notes: null }, tx);
+    assert.deepEqual([(await stateOf()).status, (await stateOf()).reviewState], ["created", null]);
+    await assert.rejects(m.setReviewState(user, { lineId: feeLine.id, state: "not_in_app" }, tx), rejects("lineNotUnmatched"));
+    // The database refuses it too.
+    await assert.rejects(
+      tx.transaction((sp) => sp.update(m.statementLines).set({ reviewState: "not_in_app" }).where(sql`${m.statementLines.id} = ${feeLine.id}`)),
+      dbRejects(/statement_lines_review_state_unmatched/),
+    );
+
+    await m.unmatchLine(user, feeLine.id, tx); // Undo: the created fee is voided
+    assert.deepEqual([(await stateOf()).status, (await stateOf()).reviewState], ["unmatched", null]);
+
+    await m.setReviewState(user, { lineId: feeLine.id, state: "needs_decision" }, tx);
+    await m.ignoreLine(user, { lineId: feeLine.id, reason: "x" }, tx);
+    await m.unignoreLine(user, feeLine.id, tx);
+    assert.deepEqual([(await stateOf()).status, (await stateOf()).reviewState], ["unmatched", null]);
+  });
+});

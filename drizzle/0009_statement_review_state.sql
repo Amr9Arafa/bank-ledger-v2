@@ -1,0 +1,3 @@
+ALTER TABLE "statement_lines" ADD COLUMN "review_state" text;--> statement-breakpoint
+ALTER TABLE "statement_lines" ADD CONSTRAINT "statement_lines_review_state_check" CHECK ("statement_lines"."review_state" is null or "statement_lines"."review_state" in ('needs_decision', 'not_in_app'));--> statement-breakpoint
+ALTER TABLE "statement_lines" ADD CONSTRAINT "statement_lines_review_state_unmatched" CHECK ("statement_lines"."review_state" is null or "statement_lines"."status" = 'unmatched');

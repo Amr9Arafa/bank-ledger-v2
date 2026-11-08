@@ -278,7 +278,10 @@
       "statement_match": "Matched to statement",
       "statement_unmatch": "Statement match undone",
       "statement_ignore": "Statement line ignored",
-      "statement_unignore": "Statement line restored"
+      "statement_unignore": "Statement line restored",
+      "statement_needs_decision": "Statement suggestion doubted",
+      "statement_not_in_app": "Statement line marked not in the app",
+      "statement_back_to_suggestions": "Statement line back to suggestions"
     },
     "telegramId": "Telegram ID",
     "telegramIdPlaceholder": "Not linked",
@@ -605,7 +608,9 @@
         "confirmAll": "Confirm all",
         "confirmAllCount": "Confirm {count, plural, one {# match} other {# matches}}",
         "show": "Show lines",
-        "empty": "No sure matches left."
+        "empty": "No sure matches left.",
+        "notSame": "Not the same",
+        "notSameHint": "Moves this line to step 2 without confirming anything."
       },
       "decide": {
         "title": "Needs your decision",

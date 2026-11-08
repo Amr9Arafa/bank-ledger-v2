@@ -278,7 +278,10 @@
       "statement_match": "مطابقة مع كشف",
       "statement_unmatch": "إلغاء مطابقة كشف",
       "statement_ignore": "تجاهل سطر كشف",
-      "statement_unignore": "استعادة سطر كشف"
+      "statement_unignore": "استعادة سطر كشف",
+      "statement_needs_decision": "تشكيك في اقتراح كشف",
+      "statement_not_in_app": "سطر كشف غير موجود في التطبيق",
+      "statement_back_to_suggestions": "إعادة سطر كشف إلى الاقتراحات"
     },
     "telegramId": "معرّف تيليجرام",
     "telegramIdPlaceholder": "غير مرتبط",
@@ -605,7 +608,9 @@
         "confirmAll": "تأكيد الكل",
         "confirmAllCount": "تأكيد {count, plural, one {مطابقة واحدة} two {مطابقتين} few {# مطابقات} many {# مطابقة} other {# مطابقة}}",
         "show": "عرض الأسطر",
-        "empty": "لا توجد مطابقات مؤكدة متبقية."
+        "empty": "لا توجد مطابقات مؤكدة متبقية.",
+        "notSame": "ليست نفس العملية",
+        "notSameHint": "ينقل هذا السطر إلى الخطوة 2 دون تأكيد أي شيء."
       },
       "decide": {
         "title": "يحتاج قرارك",

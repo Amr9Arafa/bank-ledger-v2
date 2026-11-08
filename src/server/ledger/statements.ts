@@ -389,6 +389,7 @@ export async function listStatementLines(
       chequeRef: statementLines.chequeRef,
       status: statementLines.status,
       ignoreReason: statementLines.ignoreReason,
+      reviewState: statementLines.reviewState,
       // The ledger row this line is matched to, if any.
       matchOrigin: statementMatches.origin,
       matchClearedCheque: statementMatches.clearedCheque,

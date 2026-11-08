@@ -21,6 +21,7 @@ import {
   createAllFromImport,
   createFromLine,
   ignoreLine,
+  setReviewState,
   unignoreLine,
   unmatchLine,
 } from "@/server/ledger/reconcile";
@@ -211,4 +212,18 @@ export async function createAllInterestAction(_previous: InlineActionState, form
   return matchingAction(z.object({ importId }), formData, (user, input) =>
     createAllFromImport(user, { importId: input.importId, kind: "interest" }),
   );
+}
+
+// ---- Review calls on a line's suggestions (accountant or above) ----
+
+export async function notTheSameAction(_previous: InlineActionState, formData: FormData) {
+  return matchingAction(lineOnly, formData, (user, input) => setReviewState(user, { lineId: input.lineId, state: "needs_decision" }));
+}
+
+export async function notInAppAction(_previous: InlineActionState, formData: FormData) {
+  return matchingAction(lineOnly, formData, (user, input) => setReviewState(user, { lineId: input.lineId, state: "not_in_app" }));
+}
+
+export async function backToSuggestionsAction(_previous: InlineActionState, formData: FormData) {
+  return matchingAction(lineOnly, formData, (user, input) => setReviewState(user, { lineId: input.lineId, state: null }));
 }

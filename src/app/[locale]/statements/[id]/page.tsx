@@ -94,6 +94,7 @@ export default async function StatementImportPage({ params }: PageProps<"/[local
       chequeRef: l.chequeRef,
       status: l.status,
       ignoreReason: l.ignoreReason,
+      reviewState: l.reviewState,
       sure: s?.unique ?? false,
       candidates,
       matched:
