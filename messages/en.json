@@ -562,7 +562,9 @@
       "keep": "Keep",
       "confirmUnique": "Confirm {count, plural, one {# sure match} other {# sure matches}}",
       "confirmUniqueNote": "Lines with exactly one possible record that no other line wants.",
-      "confirmedCount": "{count, plural, =0 {Nothing to confirm.} one {# match confirmed.} other {# matches confirmed.}}"
+      "confirmedCount": "{count, plural, =0 {Nothing to confirm.} one {# match confirmed.} other {# matches confirmed.}}",
+      "nameMatch": "same name",
+      "datedLater": "dated {days, plural, one {# day} other {# days}} after the bank: check it is the same transfer"
     },
     "create": {
       "open": "Create record",

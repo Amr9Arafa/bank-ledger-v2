@@ -1,15 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CREDIT_TYPES } from "../../server/db/schema.ts";
-import { chequeNumberMatches, chequeSerial, type MatchLine, type MatchRow, scoreCandidate, suggestMatches } from "./match.ts";
+import { chequeNumberMatches, chequeSerial, sameName, type MatchLine, type MatchRow, scoreCandidate, suggestMatches } from "./match.ts";
 
 const line = (over: Partial<MatchLine> = {}): MatchLine => ({
   id: "L1", bookingDate: "2026-11-05", direction: "credit", amountMinor: 700000,
-  kind: "incoming_transfer", bankRef: "001FTIC0001", chequeRef: null, ...over,
+  kind: "incoming_transfer", bankRef: "001FTIC0001", chequeRef: null, counterparty: null, ...over,
 });
 const row = (over: Partial<MatchRow> = {}): MatchRow => ({
   id: "T1", type: "transfer_in", status: "active", amountMinor: 700000, transactionDate: "2026-11-05",
-  clearedDate: null, chequeNumber: null, reference: null, notes: null, ...over,
+  clearedDate: null, chequeNumber: null, reference: null, notes: null, partyName: null, ...over,
 });
 
 test("cheque numbers match on trailing digits, ignoring our leading zeros", () => {
@@ -116,6 +116,43 @@ test("unique: one candidate that no other line wants", () => {
   const s = suggestMatches([line()], [row()]);
   assert.equal(s.get("L1")!.unique, true);
   assert.equal(suggestMatches([line()], []).get("L1")!.suggested, null);
+});
+
+test("a record dated after the bank's booking date is never a sure match", () => {
+  const later = suggestMatches([line()], [row({ transactionDate: "2026-11-08" })]).get("L1")!;
+  assert.equal(later.suggested?.transactionId, "T1"); // still suggested, to confirm by hand
+  assert.equal(later.unique, false);
+  assert.equal(suggestMatches([line()], [row({ transactionDate: "2026-11-03" })]).get("L1")!.unique, true);
+  // A cheque cleared by hand after the booking date: same rule.
+  const cheque = line({ direction: "debit", kind: "cheque", chequeRef: "07817000208006" });
+  const cleared = row({ type: "cheque", status: "cleared", transactionDate: "2026-11-01", clearedDate: "2026-11-06", chequeNumber: "208006" });
+  assert.equal(suggestMatches([cheque], [cleared]).get("L1")!.unique, false);
+});
+
+test("an identical name pairs equal amounts correctly, whatever the row order", () => {
+  // The bank's two 60,000 transfers on one day; our two records dated alike.
+  const lines = [
+    line({ id: "TO-Z", direction: "debit", kind: "outgoing_transfer", amountMinor: 6000000, counterparty: "zelal sham" }),
+    line({ id: "TO-R", direction: "debit", kind: "outgoing_transfer", amountMinor: 6000000, counterparty: "Renad el Sham" }),
+  ];
+  const rows = [
+    row({ id: "A-RENAD", type: "transfer_out", amountMinor: 6000000, transactionDate: "2026-11-08", partyName: "Renad el Sham" }),
+    row({ id: "B-ZELAL", type: "transfer_out", amountMinor: 6000000, transactionDate: "2026-11-08", partyName: "Zelal  Sham" }),
+  ];
+  const s = suggestMatches(lines, rows);
+  assert.equal(s.get("TO-Z")!.suggested!.transactionId, "B-ZELAL");
+  assert.equal(s.get("TO-R")!.suggested!.transactionId, "A-RENAD");
+  assert.equal(s.get("TO-Z")!.suggested!.nameMatch, true);
+  // Names never rule a candidate out: a different name is still a (weaker) candidate.
+  assert.equal(s.get("TO-Z")!.candidates.length, 2);
+});
+
+test("names compare loosely but not too loosely", () => {
+  assert.equal(sameName("zelal sham", "Zelal  Sham"), true);
+  assert.equal(sameName("‏محمد احمد‏", "محمد احمد"), true);
+  assert.equal(sameName("MOHAMED MAHMOUD ALY ELSAYED", "Mohamed Mahmoud Aly"), true); // one contains the other
+  assert.equal(sameName("Ali", "Ali Hassan"), false); // too short to trust containment
+  assert.equal(sameName(null, "x"), false);
 });
 
 test("the matcher's credit types are the schema's credit types", async () => {

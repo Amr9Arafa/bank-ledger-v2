@@ -19,6 +19,7 @@ export type MatchLine = {
   kind: string;
   bankRef: string;
   chequeRef: string | null;
+  counterparty: string | null;
 };
 
 export type MatchRow = {
@@ -31,18 +32,38 @@ export type MatchRow = {
   chequeNumber: string | null;
   reference: string | null;
   notes: string | null;
+  partyName: string | null;
 };
 
-export type ScoredCandidate = { transactionId: string; score: number; dayDiff: number; chequeNumberMatch: boolean };
+// dayDiff: the ledger date minus the bank's booking date (positive: the app dated it later).
+export type ScoredCandidate = {
+  transactionId: string;
+  score: number;
+  dayDiff: number;
+  chequeNumberMatch: boolean;
+  nameMatch: boolean;
+};
 
 export type LineSuggestion = {
   // The row this line is paired with after one-to-one assignment, if any.
   suggested: ScoredCandidate | null;
   // Every possible row, best first (for "pick another").
   candidates: ScoredCandidate[];
-  // Exactly one candidate, and no other line wants it: safe to confirm in bulk.
+  // Safe to confirm in bulk: exactly one candidate, no other line wants it, and the app
+  // did not date it after the bank booked it (that needs a person to look).
   unique: boolean;
 };
+
+// The bank's spelling of a name rarely equals ours, so a name is only a secondary signal:
+// equal after normalizing case, spaces and bidi marks, or one contained in the other.
+export function sameName(a: string | null, b: string | null): boolean {
+  const norm = (s: string) => s.replace(/[‎‏‪-‮⁦-⁩]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+  if (!a || !b) return false;
+  const x = norm(a);
+  const y = norm(b);
+  if (x.length < 4 || y.length < 4) return x === y && x.length > 0;
+  return x === y || x.includes(y) || y.includes(x);
+}
 
 const CREDIT = new Set(["transfer_in", "deposit", "internal_in", "interest"]);
 
@@ -102,7 +123,10 @@ export function scoreCandidate(line: MatchLine, row: MatchRow, windowDays = MATC
   if (chequeNumberMatch) score += 1000;
   if (line.bankRef && [row.reference, row.notes].some((t) => t?.includes(line.bankRef))) score += 500;
   if (kindFits(line.kind, row.type)) score += 20;
-  return { transactionId: row.id, score, dayDiff, chequeNumberMatch };
+  // Worth a few days of date distance: between two equal amounts, the same name decides.
+  const nameMatch = sameName(line.counterparty, row.partyName);
+  if (nameMatch) score += 50;
+  return { transactionId: row.id, score, dayDiff, chequeNumberMatch, nameMatch };
 }
 
 function kindFits(kind: string, type: string): boolean {
@@ -179,7 +203,12 @@ export function suggestMatches(
     result.set(line.id, {
       suggested,
       candidates,
-      unique: candidates.length === 1 && suggested !== null && linesPerRow.get(suggested.transactionId) === 1,
+      unique:
+        candidates.length === 1 &&
+        suggested !== null &&
+        linesPerRow.get(suggested.transactionId) === 1 &&
+        // Dated after the bank booked it: maybe a different transaction, so never in bulk.
+        suggested.dayDiff <= 0,
     });
   }
   return result;

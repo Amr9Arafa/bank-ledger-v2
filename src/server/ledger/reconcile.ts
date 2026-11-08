@@ -19,7 +19,6 @@ import { createInternalTransfer, createMovement, voidTransaction } from "./trans
 import { LedgerError, type LedgerUser } from "./types.ts";
 
 export type CandidateRow = MatchRow & {
-  partyName: string | null;
   description: string | null;
 };
 
@@ -33,6 +32,7 @@ const lineColumns = {
   kind: statementLines.kind,
   bankRef: statementLines.bankRef,
   chequeRef: statementLines.chequeRef,
+  counterparty: statementLines.counterparty,
   status: statementLines.status,
 };
 

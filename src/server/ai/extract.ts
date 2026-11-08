@@ -68,6 +68,7 @@ Rules:
 - account_id: pick from the accounts listed, matching by account name, bank name, or the last digits of the account number. If the input does not clearly identify one, use null; do not guess.
 - counterparty: when the name matches one of the known counterparties, return that exact spelling.
 - Dates: resolve relative dates (النهارده، امبارح، أول امبارح، يوم الخميس) against today's date given with the input. A weekday name alone means the most recent such day, today included. If the input gives no date at all, use null.
+- Bank receipts for outgoing transfers: the date is the day our account was debited, not the day the money reaches the beneficiary. A receipt dated after today's date is showing a settlement date (e.g. an EG-ACH "Normal Transfer" made after the cut-off or before a weekend settles on the next working day): use today's date, and put the receipt's date in notes as "Settlement date: <date>".
 - For cheques, copy amount_in_words exactly as written, and read amount_in_words_value from the words alone, without looking at the digits: the reviewer uses it to catch mistakes.
 - notes: text after a note label (note:، notes:، ملاحظة:، ملاحظات:) goes into notes exactly as written, without the label word itself: do not translate, shorten or reword it. Add any other descriptive details (purpose, invoice number, e.g. دفعة من فاتورة 234) after it.
 - Never invent a value. Use null for anything the input does not state or you cannot read.
@@ -92,7 +93,8 @@ function weekday(day: string) {
   );
 }
 
-async function loadContext(user: LedgerUser, database: Executor) {
+// `today` overrides the clock, only to re-run an old input as of the day it was sent.
+async function loadContext(user: LedgerUser, database: Executor, today = todayInCairo()) {
   const accounts = await database
     .select({
       id: bankAccounts.id,
@@ -109,7 +111,7 @@ async function loadContext(user: LedgerUser, database: Executor) {
     )
     .orderBy(asc(bankAccounts.name));
   const counterparties = await listCounterparties(user.organizationId, 200, database);
-  return { accounts, counterparties, today: todayInCairo() };
+  return { accounts, counterparties, today };
 }
 
 type Context = Awaited<ReturnType<typeof loadContext>>;
@@ -224,9 +226,10 @@ export async function runExtraction(
   user: LedgerUser,
   input: ExtractionInput,
   database: Executor = db,
+  options: { today?: string } = {},
 ): Promise<ExtractionResult> {
   validateInput(input);
-  const context = await loadContext(user, database);
+  const context = await loadContext(user, database, options.today);
   const extracted = await callModel(context, input);
   if (foundNothing(extracted)) throw new ExtractionError("nothingFound");
   const { warnings, resolved } = checkExtraction(extracted, {

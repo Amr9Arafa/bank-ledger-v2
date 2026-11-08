@@ -282,7 +282,8 @@ test("suggest, confirm and unmatch a movement, with audit rows", { skip }, async
     const s = suggestions.get(feeLine.id)!;
     assert.equal(s.suggested?.transactionId, feeId);
     assert.equal(s.suggested?.dayDiff, 1);
-    assert.equal(s.unique, true);
+    // Dated a day after the bank booked it: suggested, but never a sure (bulk) match.
+    assert.equal(s.unique, false);
 
     await m.confirmMatch(user, { lineId: feeLine.id, transactionId: feeId }, tx);
     let [, , after] = await m.listStatementLines(user.organizationId, importId, null, tx);

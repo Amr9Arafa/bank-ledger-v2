@@ -17,7 +17,7 @@ import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { formatDay } from "@/lib/dates";
 import { formatEGP } from "@/lib/money";
-import { chequeSerial } from "@/lib/statements/match";
+import { chequeSerial, type ScoredCandidate } from "@/lib/statements/match";
 import { hasRole } from "@/server/auth/roles";
 import { getCurrentUser } from "@/server/auth/session";
 import type { TransactionType } from "@/server/db/schema";
@@ -117,15 +117,17 @@ export default async function StatementImportPage({ params, searchParams }: Page
 
   const day = (d: string) => formatDay(d, locale);
   const typeLabel = (type: string) => tl(`types.${type as TransactionType}`);
-  const optionLabel = (transactionId: string, dayDiff: number, chequeNumberMatch: boolean): string => {
-    const r = rows.get(transactionId)!;
+  const optionLabel = (c: ScoredCandidate): string => {
+    const r = rows.get(c.transactionId)!;
     const parts = [
       day(r.type === "cheque" && r.status === "cleared" && r.clearedDate ? r.clearedDate : r.transactionDate),
       typeLabel(r.type) + (r.chequeNumber ? ` #${r.chequeNumber}` : ""),
       r.partyName ?? r.description ?? "",
-      tm("dayDiff", { days: Math.abs(dayDiff) }),
+      // Dated after the bank booked it: said plainly, it may be a different transaction.
+      c.dayDiff > 0 ? tm("datedLater", { days: c.dayDiff }) : tm("dayDiff", { days: Math.abs(c.dayDiff) }),
     ];
-    if (chequeNumberMatch) parts.push(tm("chequeNumberMatch"));
+    if (c.nameMatch) parts.push(tm("nameMatch"));
+    if (c.chequeNumberMatch) parts.push(tm("chequeNumberMatch"));
     if (r.type === "cheque" && r.status === "issued") parts.push(tm("clearsCheque"));
     return parts.filter(Boolean).join(" · ");
   };
@@ -314,7 +316,7 @@ export default async function StatementImportPage({ params, searchParams }: Page
                   ? [
                       ...(s.suggested ? [s.suggested] : []),
                       ...s.candidates.filter((c) => c.transactionId !== s.suggested?.transactionId),
-                    ].map((c) => ({ transactionId: c.transactionId, label: optionLabel(c.transactionId, c.dayDiff, c.chequeNumberMatch) }))
+                    ].map((c) => ({ transactionId: c.transactionId, label: optionLabel(c) }))
                   : [];
                 return (
                   <tr key={l.id} className="border-t border-border align-top">
