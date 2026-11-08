@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { csvRows, parseCibCsv, parseCsvAmount, parseDmy } from "./cibCsv.ts";
 import { enrichCibLine } from "./cib.ts";
 import { parseStatementFile } from "./index.ts";
-import { chequeSerial } from "./match.ts";
+import { chequeSerial, type MatchRow, suggestMatches } from "./match.ts";
 import type { ParsedStatement } from "./types.ts";
 
 // A synthetic CIB export in the real layout; account, references and amounts are made up.
@@ -139,6 +139,32 @@ test("CIB line reader: kinds by keywords, fallback by direction", () => {
   assert.equal(read("OWN ACCOUNT TRANSFER", "debit").kind, "account_transfer");
   // A description that does not start with the reference is kept whole.
   assert.equal(enrichCibLine({ description: "PLAIN", bankRef: "FT9", direction: "debit", chequeRef: null }).description, "PLAIN");
+});
+
+test("a filled Cheque Number column makes the line a cheque, whatever the description says", () => {
+  const read = (description: string, direction: "credit" | "debit", chequeRef: string | null) =>
+    enrichCibLine({ description, bankRef: "FT9", direction, chequeRef });
+  // Descriptions that would otherwise be a fee, interest, a transfer or the fallback.
+  for (const description of ["SERVICE CHARGES", "CREDIT INTEREST", "OWN ACCOUNT TRANSFER", "DD SALARY - Salary", ""]) {
+    assert.equal(read(description, "debit", "0012345").kind, "cheque", description);
+    assert.equal(read(description, "debit", "0012345").chequeRef, "0012345");
+    assert.notEqual(read(description, "debit", null).kind, "cheque", description);
+  }
+  assert.equal(read("RETURNED", "credit", "0012345").kind, "cheque");
+
+  // Through the whole parser: the column alone is enough, and the line matches a cheque.
+  const moves: Mv[] = [["03/11/2026", "03/11/2026", "FT0005", "SERVICE CHARGES", "0054321", "300.00", "", "1,700.00"]];
+  const r = parseStatementFile(cibCsv(moves));
+  assert.ok(r.ok);
+  const [line] = r.statements[0].lines;
+  assert.deepEqual([line.kind, line.chequeRef], ["cheque", "0054321"]);
+  const issued: MatchRow = {
+    id: "C1", type: "cheque", status: "issued", amountMinor: 30000, transactionDate: "2026-10-20", clearedDate: null,
+    chequeNumber: chequeSerial("0054321", "cib"), reference: null, notes: null, partyName: "Payee",
+  };
+  const s = suggestMatches([{ ...line, id: "L1" }], [issued]).get("L1")!;
+  assert.equal(s.suggested?.transactionId, "C1");
+  assert.equal(s.suggested?.chequeNumberMatch, true);
 });
 
 test("format detection: CIB CSV, NBE MT940, anything else", () => {

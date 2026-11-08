@@ -10,7 +10,10 @@ type Enrichment = Pick<StatementLine, "description" | "kind" | "counterparty" | 
 
 function kindOf(text: string, direction: StatementLine["direction"], hasChequeNumber: boolean): LineKind {
   const isCredit = direction === "credit";
-  if (!isCredit && (hasChequeNumber || /\b(cheque|chq|clearing)\b|شيك/i.test(text))) return "cheque";
+  // A filled Cheque Number column decides, whatever the description says, so the line can
+  // match a cheque record.
+  if (hasChequeNumber) return "cheque";
+  if (!isCredit && /\b(cheque|chq|clearing)\b|شيك/i.test(text)) return "cheque";
   if (/\b(fees?|charges?|commission|comm)\b|عمول|مصاريف|رسوم/i.test(text)) return "fee";
   if (/\binterest\b|فائد|فوائد/i.test(text)) return "interest";
   if (/\b(own account|between accounts|internal transfer)\b/i.test(text)) return "account_transfer";
