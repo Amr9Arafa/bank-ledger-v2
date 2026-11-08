@@ -513,16 +513,7 @@
       "deleteNote": "Removes this statement and its lines, and undoes everything done from it: matches are removed, cheques it cleared go back to outstanding, and records created from it are voided or cancelled."
     },
     "detail": {
-      "back": "All statements",
-      "lineNo": "#",
-      "date": "Date",
-      "valueDate": "Value date",
-      "description": "Description",
-      "kind": "Kind",
-      "amount": "Amount",
-      "status": "Status",
-      "all": "All",
-      "empty": "No lines here."
+      "back": "All statements"
     },
     "kinds": {
       "incoming_transfer": "Incoming transfer",
@@ -533,39 +524,10 @@
       "interest": "Interest",
       "other": "Other"
     },
-    "statuses": {
-      "suggested": "Suggested",
-      "unmatched": "Unmatched",
-      "matched": "Matched",
-      "created": "Created",
-      "ignored": "Ignored",
-      "before_start": "Before start date"
-    },
     "match": {
-      "suggested": "Suggested",
-      "matchedTo": "Matched to",
-      "suggestion": "Suggested match",
-      "candidates": "Possible records",
-      "confirm": "Confirm",
-      "pick": "Match",
-      "otherCandidates": "{count, plural, one {# other possible record} other {# other possible records}}",
       "dayDiff": "{days, plural, =0 {same day} one {# day apart} other {# days apart}}",
       "chequeNumberMatch": "cheque number matches",
       "clearsCheque": "confirming clears this cheque",
-      "clearedByMatch": "cleared by this match",
-      "noCandidate": "No record in the app fits this line.",
-      "unmatch": "Unmatch",
-      "confirmUnmatch": "Unmatch",
-      "unmatchNote": "Removes the match. A cheque cleared by it goes back to outstanding.",
-      "ignore": "Ignore",
-      "ignoreReason": "Reason",
-      "confirmIgnore": "Ignore line",
-      "unignore": "Restore",
-      "confirmUnignore": "Restore line",
-      "keep": "Keep",
-      "confirmUnique": "Confirm {count, plural, one {# sure match} other {# sure matches}}",
-      "confirmUniqueNote": "Lines with exactly one possible record that no other line wants.",
-      "confirmedCount": "{count, plural, =0 {Nothing to confirm.} one {# match confirmed.} other {# matches confirmed.}}",
       "nameMatch": "same name",
       "datedLater": "dated {days, plural, one {# day} other {# days}} after the bank: check it is the same transfer"
     },
@@ -591,15 +553,7 @@
       "fromAccount": "From account",
       "notes": "Notes",
       "oldChequeNote": "Issued before the start date.",
-      "fromLine": "Date, amount and bank reference come from the statement line. An old cheque is recorded as issued and cleared on this day.",
-      "createdNote": "Created from this line",
-      "undo": "Undo",
-      "confirmUndo": "Undo record",
-      "undoNote": "Voids the record created from this line (a cheque is cancelled). Records are never deleted.",
-      "bulkFees": "Create {count, plural, one {# fee} other {# fees}}",
-      "bulkInterest": "Create {count, plural, one {# interest record} other {# interest records}}",
-      "bulkNote": "One record per line that has no possible record in the app. Lines that might match something are left for you.",
-      "keep": "Keep"
+      "fromLine": "Date, amount and bank reference come from the statement line. An old cheque is recorded as issued and cleared on this day."
     },
     "accounts": {
       "title": "Accounts",
@@ -627,6 +581,66 @@
       "unexplainedNote": "No line explains this: a statement may be missing, or the opening balance differs from the bank.",
       "reconciled": "Fully reconciled: every line is accounted for.",
       "notReconciled": "Not reconciled yet: {count, plural, one {# line} other {# lines}} to review."
+    },
+    "review": {
+      "progress": "{done} of {total} lines resolved",
+      "closingOk": "The app matches the bank on {date}.",
+      "closingDifference": "Difference with the bank on {date}:",
+      "explain": "What explains the difference",
+      "bank": "Bank statement",
+      "app": "In the app",
+      "signals": "How well they match",
+      "outstandingCheque": "outstanding",
+      "keep": "Keep",
+      "beforeStart": "{count, plural, one {# line is} other {# lines are}} before the start date and only used for the balance checks.",
+      "fields": {
+        "date": "Date",
+        "amount": "Amount",
+        "name": "Name",
+        "reference": "Reference / notes"
+      },
+      "sure": {
+        "title": "Sure matches",
+        "summary": "{count, plural, one {# line matches} other {# lines match}} exactly one record in the app.",
+        "confirmAll": "Confirm all",
+        "confirmAllCount": "Confirm {count, plural, one {# match} other {# matches}}",
+        "show": "Show lines",
+        "empty": "No sure matches left."
+      },
+      "decide": {
+        "title": "Needs your decision",
+        "intro": "Compare the bank line with the record from the app: same fields, in the same order.",
+        "same": "Same transaction",
+        "different": "Different record ({count} more)",
+        "notInApp": "Not in the app",
+        "pick": "Choose the record",
+        "empty": "Nothing to decide."
+      },
+      "missing": {
+        "title": "Missing in the app",
+        "intro": "No record in the app for these lines: create one, or ignore the line.",
+        "bulkFees": "Create {count, plural, one {# fee} other {# fees}}",
+        "bulkInterest": "Create {count, plural, one {# interest record} other {# interest records}}",
+        "bulkNote": "One record per line that has no possible record in the app.",
+        "backToSuggestions": "Back to suggestions",
+        "ignore": "Ignore",
+        "confirmIgnore": "Ignore line",
+        "ignoreReason": "Reason",
+        "empty": "Nothing missing."
+      },
+      "done": {
+        "title": "Done",
+        "show": "Show {count, plural, one {# line} other {# lines}}",
+        "empty": "Nothing resolved yet.",
+        "matched": "Matched",
+        "created": "Created",
+        "ignored": "Ignored",
+        "clearedByMatch": "cheque cleared by this match",
+        "undo": "Undo",
+        "restore": "Restore line",
+        "undoMatchedNote": "Removes the match. A cheque cleared by it goes back to outstanding.",
+        "undoCreatedNote": "Voids the record created from this line (a cheque is cancelled). Records are never deleted."
+      }
     }
   }
 }
