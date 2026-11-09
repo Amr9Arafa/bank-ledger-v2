@@ -93,8 +93,10 @@ export async function closingCheck(organizationId: string, importId: string, dat
     signedMinor: Number(r.signed_minor),
   }));
 
-  // A matched pair counts on the app side by the app's date and on the bank side by the
-  // booking date; when only one of them is on or before `date`, it explains a difference.
+  // A matched pair whose two sides fall on different sides of `date`. Since a matched record
+  // counts on its line's booking date (see bankDate), this is always empty; it stays as a
+  // safety net, so a pair counted on different days would show up instead of hiding in
+  // the unexplained remainder.
   const [timing] = await database.execute<{ count: string; total: string }>(sql`
     select
       count(*) as count,

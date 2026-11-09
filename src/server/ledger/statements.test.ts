@@ -591,22 +591,61 @@ test("closing check explains the difference and is zero once every line is accou
   });
 });
 
-test("timing: a match whose app date is after the closing date", { skip }, async () => {
+test("a matched record counts on the bank's booking date; unmatching or deleting the import restores its own date", { skip }, async () => {
   await inRollback(async (tx) => {
     const { m, user, account, other, importIt } = await setup(tx);
     const a = await importIt(A());
     await createAll(m, user, a.importId, tx, other.id);
     const b = await importIt(B()); // closes 11-04; its only new line is the 20.00 booked 11-04
-    // The app recorded that transfer on 11-06, after the statement's closing date.
+    // The app recorded that transfer on 11-06, two days after the bank booked it.
     const r = await m.createMovement(user, { type: "transfer_in", bankAccountId: account.id, transactionDate: "2026-11-06", amountMinor: 2000, partyName: "GAMMA", reference: null, notes: null }, {}, tx);
-    const [line] = await m.listStatementLines(user.organizationId, b.importId, null, tx);
-    await m.confirmMatch(user, { lineId: line.id, transactionId: r.status === "created" ? r.ids[0] : "" }, tx);
+    const rowId = r.status === "created" ? r.ids[0] : "";
+    const asOf = (d: string) => m.getBankBalanceAsOf(user.organizationId, account.id, d, tx);
+    assert.deepEqual([await asOf("2026-11-04"), await asOf("2026-11-06")], [94500, 96500]); // own date while unmatched
 
+    const [line] = await m.listStatementLines(user.organizationId, b.importId, null, tx);
+    await m.confirmMatch(user, { lineId: line.id, transactionId: rowId }, tx);
+    // Matched: it counts on 11-04, the booking date; its own date is unchanged.
+    assert.deepEqual([await asOf("2026-11-03"), await asOf("2026-11-04")], [94500, 96500]);
+    assert.equal((await rowOf(m, tx, rowId)).transactionDate, "2026-11-06");
     const c = await m.closingCheck(user.organizationId, b.importId, tx);
-    assert.deepEqual([c.bankMinor, c.appMinor, c.differenceMinor], [96500, 94500, -2000]);
-    assert.deepEqual(c.timing, { count: 1, totalMinor: -2000 });
-    assert.equal(c.unexplainedMinor, 0);
+    assert.deepEqual([c.bankMinor, c.appMinor, c.differenceMinor], [96500, 96500, 0]);
+    assert.deepEqual(c.timing, { count: 0, totalMinor: 0 }); // the safety net stays empty
     assert.equal(c.reconciled, true);
+
+    // Unmatching puts it back on its own date.
+    await m.unmatchLine(user, line.id, tx);
+    assert.equal(await asOf("2026-11-04"), 94500);
+
+    // Matched again, then the import deleted: back on its own date as well.
+    await m.confirmMatch(user, { lineId: line.id, transactionId: rowId }, tx);
+    assert.equal(await asOf("2026-11-04"), 96500);
+    await m.deleteImport(user, b.importId, tx);
+    assert.deepEqual([await asOf("2026-11-04"), await asOf("2026-11-06")], [94500, 96500]);
+  });
+});
+
+test("a cheque cleared by hand on another day, then matched, counts on the booking date", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, importIt } = await setup(tx);
+    const { importId } = await importIt(A()); // the 50.00 cheque line is booked 11-02
+    const cheque = await m.createCheque(
+      user,
+      { bankAccountId: account.id, chequeNumber: "100000000123", partyName: "Payee", transactionDate: "2026-11-02", dueDate: null, amountMinor: 5000, notes: null },
+      tx,
+    );
+    await m.clearCheque(user, { transactionId: cheque.id, clearedDate: "2026-11-04" }, tx);
+    const asOf = (d: string) => m.getBankBalanceAsOf(user.organizationId, account.id, d, tx);
+    assert.equal(await asOf("2026-11-02"), 100000); // cleared 11-04 by hand: not yet on 11-02
+
+    const [, chequeLine] = await m.listStatementLines(user.organizationId, importId, null, tx);
+    await m.confirmMatch(user, { lineId: chequeLine.id, transactionId: cheque.id }, tx);
+    assert.equal(await asOf("2026-11-02"), 95000); // the bank paid it on 11-02
+    const row = await rowOf(m, tx, cheque.id);
+    assert.deepEqual([row.status, row.clearedDate], ["cleared", "2026-11-04"]); // the cleared date stays as entered
+
+    await m.unmatchLine(user, chequeLine.id, tx);
+    assert.equal(await asOf("2026-11-02"), 100000);
   });
 });
 
