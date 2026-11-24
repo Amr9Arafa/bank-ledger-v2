@@ -217,6 +217,27 @@ export function mergedNotes(rawText: string | null | undefined, modelNotes: stri
 // Starting values for the review form, with the same field names as the manual forms.
 // A cheque's written date is its due date when it is in the future (post-dated);
 // otherwise it is the issue date. Anything unknown is left empty for the reviewer.
+// What the AI actually read, per review-form field: the form's starting values, except the
+// date when the AI read none (the form then starts at today, which is not a reading).
+export function aiReadValues(defaults: Record<string, string>, resolvedDate: string | null): Record<string, string> {
+  return {
+    ...defaults,
+    transactionDate: resolvedDate && defaults.transactionDate === resolvedDate ? resolvedDate : "",
+  };
+}
+
+// Does a review-form field now differ from what the AI read? Only fields the AI did read can
+// differ; amounts compare by value ("17800" = "17,800.00"), everything else as trimmed text.
+export function fieldChanged(name: string, aiValue: string, currentValue: string): boolean {
+  if (aiValue.trim() === "") return false;
+  if (name === "amountMinor") {
+    const a = toMinor(aiValue);
+    const b = toMinor(currentValue);
+    if (a.ok && b.ok) return a.minor !== b.minor;
+  }
+  return aiValue.trim() !== currentValue.trim();
+}
+
 export function reviewDefaults(
   extraction: Extraction,
   resolved: ResolvedExtraction,

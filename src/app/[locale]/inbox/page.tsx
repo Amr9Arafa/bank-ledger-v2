@@ -7,7 +7,7 @@ import { panel } from "@/components/styles";
 import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { formatDay, todayInCairo } from "@/lib/dates";
-import { checkExtraction, reviewDefaults, WARNING_FIELDS } from "@/lib/extraction";
+import { aiReadValues, checkExtraction, reviewDefaults, WARNING_FIELDS } from "@/lib/extraction";
 import { formatEGP, toMinor } from "@/lib/money";
 import { getUserWithRole } from "@/server/auth/session";
 import { getActiveAccounts } from "@/server/ledger/accounts";
@@ -85,6 +85,12 @@ export default async function InboxPage({ params, searchParams }: PageProps<"/[l
         {entries.map((entry, i) => {
           const imageUrl = imageUrls[i];
           const x = entry.extracted;
+          // Pending: the form starts from what the AI read. `aiRead` is the same except the date
+          // when the AI read none (the form then starts at today, which is not a reading),
+          // so the form can mark only real changes.
+          const resolved = checkExtraction(x, { accounts, counterparties, today, hasImage: false }).resolved;
+          const defaults = reviewDefaults(x, resolved, today, entry.rawText);
+          const aiRead = aiReadValues(defaults, resolved.date);
           // Approved: what was saved. Rejected: what the model read.
           const read = x.amount ? toMinor(x.amount) : null;
           const summary =
@@ -157,13 +163,8 @@ export default async function InboxPage({ params, searchParams }: PageProps<"/[l
                   <InboxReviewForm
                     entryId={entry.id}
                     type={entry.type}
-                    defaults={reviewDefaults(
-                      x,
-                      checkExtraction(x, { accounts, counterparties, today, hasImage: false })
-                        .resolved,
-                      today,
-                      entry.rawText,
-                    )}
+                    defaults={defaults}
+                    aiRead={aiRead}
                     accounts={accounts}
                     warnedFields={entry.warnings.flatMap((w) => WARNING_FIELDS[w.code] ?? [])}
                     today={today}

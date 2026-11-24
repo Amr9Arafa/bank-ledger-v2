@@ -226,3 +226,28 @@ test("reviewDefaults: notes include the labelled note from the raw text", async 
   const d = reviewDefaults(cheque, checkExtraction(cheque, context).resolved, context.today, "ملاحظة: إيجار");
   assert.equal(d.notes, "إيجار");
 });
+
+test("review form: a field is 'changed' only when it differs from a value the AI read", async () => {
+  const { fieldChanged } = await import("./extraction.ts");
+  // Direction and account changed by hand: marked.
+  assert.equal(fieldChanged("type", "transfer_out", "transfer_in"), true);
+  assert.equal(fieldChanged("bankAccountId", "acc-1010", "acc-2023"), true);
+  assert.equal(fieldChanged("type", "transfer_out", "transfer_out"), false);
+  // Amounts compare by value, not by spelling.
+  assert.equal(fieldChanged("amountMinor", "17800.00", "17,800"), false);
+  assert.equal(fieldChanged("amountMinor", "17800.00", "18700"), true);
+  // Text is compared trimmed.
+  assert.equal(fieldChanged("partyName", "Ahmed ", "Ahmed"), false);
+  // The AI read nothing: filling the field in is not a change.
+  assert.equal(fieldChanged("bankAccountId", "", "acc-2023"), false);
+  assert.equal(fieldChanged("transactionDate", "", "2026-11-23"), false);
+});
+
+test("review form: a date the AI did not read is not treated as a reading", async () => {
+  const { aiReadValues } = await import("./extraction.ts");
+  const defaults = { type: "transfer_in", transactionDate: "2026-11-24", amountMinor: "60000.00" };
+  // The form started at today because the AI read no date.
+  assert.deepEqual(aiReadValues(defaults, null), { ...defaults, transactionDate: "" });
+  // The AI read the date: it is kept.
+  assert.deepEqual(aiReadValues({ ...defaults, transactionDate: "2026-11-21" }, "2026-11-21").transactionDate, "2026-11-21");
+});

@@ -1,19 +1,24 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { type ReactNode, useActionState, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { approveEntry, type ReviewFormState } from "@/actions/inbox";
 import { inputClass, primaryButton, useFieldHelpers } from "@/components/form";
 import type { Locale } from "@/i18n/routing";
 import { formatDay } from "@/lib/dates";
+import { fieldChanged } from "@/lib/extraction";
 import type { AccountOption } from "@/server/ledger/accounts";
 
 // The extracted fields of one AI Inbox entry, editable before approving. Approving runs the
 // same validation and ledger rules as entering the movement or cheque by hand.
+// Direction and account are buttons, not dropdowns: a focused dropdown changes value with
+// the arrow keys or a typed letter without being opened, which once saved two entries with
+// the wrong direction or account. Any field that differs from what the AI read is marked.
 export default function InboxReviewForm({
   entryId,
   type,
   defaults,
+  aiRead,
   accounts,
   warnedFields,
   today,
@@ -21,6 +26,8 @@ export default function InboxReviewForm({
   entryId: string;
   type: "transaction" | "cheque";
   defaults: Record<string, string>;
+  // What the AI read, per field ("" when it read nothing): the reference for "changed" marks.
+  aiRead: Record<string, string>;
   accounts: AccountOption[];
   // Fields a warning is about: highlighted until the reviewer has looked at them.
   warnedFields: string[];
@@ -37,46 +44,111 @@ export default function InboxReviewForm({
   });
   const { field, a11y, errorText } = useFieldHelpers(state.errors, `${entryId}-`);
   const v = state.values;
-  // The party label follows the direction while the reviewer edits it.
-  const [direction, setDirection] = useState(v.type ?? "");
-  // The date as currently typed: a future date is easy to miss (a transfer receipt can show
-  // the settlement date), so it is flagged loudly until it is corrected.
-  const [date, setDate] = useState(v.transactionDate ?? "");
+  // Current value of every field, for the "changed" marks (inputs stay uncontrolled).
+  const [current, setCurrent] = useState<Record<string, string>>(v);
+  const track = (name: string) => (e: { currentTarget: { value: string } }) => {
+    const value = e.currentTarget.value;
+    setCurrent((c) => ({ ...c, [name]: value }));
+  };
+  const direction = current.type ?? "";
+  const date = current.transactionDate ?? "";
   const futureDate = date !== "" && date > today;
 
+  const accountLabel = (id: string) => {
+    const a = accounts.find((x) => x.id === id);
+    return a ? `${a.name} · …${a.last4}` : "";
+  };
+  const shown = (name: string, value: string): string => {
+    if (name === "type") return value === "transfer_in" || value === "transfer_out" ? tm(`types.${value}`) : value;
+    if (name === "bankAccountId") return accountLabel(value);
+    if (name === "transactionDate" || name === "dueDate") return value ? formatDay(value, locale) : value;
+    return value;
+  };
+  // "changed: AI read …" under a field whose value differs from a value the AI did read.
+  const changed = (name: string): ReactNode => {
+    const ai = aiRead[name] ?? "";
+    if (!fieldChanged(name, ai, current[name] ?? "")) return null;
+    return (
+      <p className="mt-1 text-xs font-medium text-warning">
+        {t("changedFrom", { value: "" })}
+        <bdi>{shown(name, ai)}</bdi>
+      </p>
+    );
+  };
+  const withMark = (name: string, node: ReactNode) => (
+    <div>
+      {node}
+      {changed(name)}
+    </div>
+  );
+
   // Amber ring on fields a warning points at, unless they already show an error.
-  const cls = (name: string, extra = "") =>
-    `${inputClass} ${extra} ${warnedFields.includes(name) && !state.errors[name] ? "ring-1 ring-warning" : ""}`;
+  const ring = (name: string) => (warnedFields.includes(name) && !state.errors[name] ? "ring-1 ring-warning" : "");
+  const cls = (name: string, extra = "") => `${inputClass} ${extra} ${ring(name)}`;
 
-  const futureDateNote = futureDate && (
-    <p role="alert" className="rounded-md border border-warning bg-warning-tint px-3 py-2 text-sm font-medium text-warning">
-      {t("futureDateNote", { date: formatDay(date, locale) })}
-    </p>
-  );
+  // A group of buttons that sets one hidden field. Buttons only change on a click (or
+  // Enter/Space on the focused button): no arrow-key or type-ahead changes.
+  const choice = (name: string, label: string, options: { value: string; label: ReactNode }[]) => {
+    const value = current[name] ?? "";
+    const labelId = `${entryId}-${name}-label`;
+    return (
+      <div>
+        <p id={labelId} className="mb-1 block text-sm font-medium">
+          {label}
+        </p>
+        <input type="hidden" name={name} value={value} />
+        <div
+          role="radiogroup"
+          aria-labelledby={labelId}
+          aria-invalid={Boolean(state.errors[name])}
+          className={`flex flex-wrap gap-2 rounded-md ${ring(name)}`}
+        >
+          {options.map((o) => {
+            const selected = o.value === value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setCurrent((c) => ({ ...c, [name]: o.value }))}
+                className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                  selected
+                    ? "border-navy bg-navy text-white"
+                    : "border-border bg-background text-foreground hover:bg-surface-subtle"
+                }`}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+        {state.errors[name] && <p className="mt-1 text-sm text-debit">{errorText(state.errors[name])}</p>}
+        {changed(name)}
+      </div>
+    );
+  };
 
-  const accountSelect = (options: AccountOption[]) => (
-    <select
-      {...a11y("bankAccountId")}
-      defaultValue={v.bankAccountId ?? ""}
-      required
-      className={cls("bankAccountId")}
-    >
-      <option value="" disabled>
-        {tm("selectAccount")}
-      </option>
-      {options.map((a) => (
-        <option key={a.id} value={a.id}>
-          {a.name} — {a.bankName}
-        </option>
-      ))}
-    </select>
-  );
+  const accountChoice = (options: AccountOption[]) =>
+    choice(
+      "bankAccountId",
+      type === "cheque" ? tc("account") : tm("account"),
+      options.map((a) => ({
+        value: a.id,
+        label: (
+          <>
+            <bdi>{a.name}</bdi> <span className="tabular-nums opacity-80" dir="ltr">…{a.last4}</span>
+          </>
+        ),
+      })),
+    );
 
   const textInput = (name: string, extra: { dir?: "ltr"; required?: boolean } = {}) => (
     <input
       type="text"
       {...a11y(name)}
       defaultValue={v[name] ?? ""}
+      onChange={track(name)}
       dir={extra.dir}
       required={extra.required}
       className={cls(name)}
@@ -91,6 +163,7 @@ export default function InboxReviewForm({
       dir="ltr"
       {...a11y("amountMinor")}
       defaultValue={v.amountMinor ?? ""}
+      onChange={track("amountMinor")}
       placeholder="0.00"
       required
       className={cls("amountMinor", "tabular-nums")}
@@ -102,14 +175,20 @@ export default function InboxReviewForm({
       type="date"
       {...a11y(name)}
       defaultValue={v[name] ?? ""}
+      onChange={track(name)}
       required={required}
-      onChange={name === "transactionDate" ? (e) => setDate(e.currentTarget.value) : undefined}
       className={
         name === "transactionDate" && futureDate && !state.errors[name]
           ? `${inputClass} ring-2 ring-warning bg-warning-tint`
           : cls(name)
       }
     />
+  );
+
+  const futureDateNote = futureDate && (
+    <p role="alert" className="rounded-md border border-warning bg-warning-tint px-3 py-2 text-sm font-medium text-warning">
+      {t("futureDateNote", { date: formatDay(date, locale) })}
+    </p>
   );
 
   return (
@@ -120,70 +199,47 @@ export default function InboxReviewForm({
 
       {type === "transaction" ? (
         <>
+          {choice("type", tm("typeLabel"), [
+            { value: "transfer_in", label: tm("types.transfer_in") },
+            { value: "transfer_out", label: tm("types.transfer_out") },
+          ])}
+          {accountChoice(accounts)}
           <div className="grid gap-4 sm:grid-cols-2">
-            {field(
-              "type",
-              tm("typeLabel"),
-              <select
-                {...a11y("type")}
-                defaultValue={v.type ?? ""}
-                onChange={(e) => setDirection(e.target.value)}
-                required
-                className={cls("type")}
-              >
-                <option value="" disabled>
-                  {t("selectDirection")}
-                </option>
-                <option value="transfer_in">{tm("types.transfer_in")}</option>
-                <option value="transfer_out">{tm("types.transfer_out")}</option>
-              </select>,
-            )}
-            {field("bankAccountId", tm("account"), accountSelect(accounts))}
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {field(
+            {withMark(
               "partyName",
-              direction === "transfer_out" ? tm("beneficiary") : tm("sender"),
-              textInput("partyName", { required: true }),
+              field("partyName", direction === "transfer_out" ? tm("beneficiary") : tm("sender"), textInput("partyName", { required: true })),
             )}
-            {field(
-              "reference",
-              `${tm("reference")} ${tm("optional")}`,
-              textInput("reference", { dir: "ltr" }),
-            )}
+            {withMark("reference", field("reference", `${tm("reference")} ${tm("optional")}`, textInput("reference", { dir: "ltr" })))}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            {field("transactionDate", tm("date"), dateInput("transactionDate"))}
-            {field("amountMinor", tm("amount"), amountInput())}
+            {withMark("transactionDate", field("transactionDate", tm("date"), dateInput("transactionDate")))}
+            {withMark("amountMinor", field("amountMinor", tm("amount"), amountInput()))}
           </div>
           {futureDateNote}
         </>
       ) : (
         <>
+          {accountChoice(accounts.filter((a) => a.issuesCheques))}
           <div className="grid gap-4 sm:grid-cols-2">
-            {field(
-              "bankAccountId",
-              tc("account"),
-              accountSelect(accounts.filter((a) => a.issuesCheques)),
-            )}
-            {field("chequeNumber", tc("number"), textInput("chequeNumber", { dir: "ltr", required: true }))}
+            {withMark("chequeNumber", field("chequeNumber", tc("number"), textInput("chequeNumber", { dir: "ltr", required: true })))}
+            {withMark("partyName", field("partyName", tc("payee"), textInput("partyName", { required: true })))}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            {field("partyName", tc("payee"), textInput("partyName", { required: true }))}
-            {field("amountMinor", tm("amount"), amountInput())}
+            {withMark("amountMinor", field("amountMinor", tm("amount"), amountInput()))}
+            {withMark("transactionDate", field("transactionDate", tc("issueDate"), dateInput("transactionDate")))}
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {field("transactionDate", tc("issueDate"), dateInput("transactionDate"))}
-            {field("dueDate", `${tc("dueDate")} ${tm("optional")}`, dateInput("dueDate", false))}
-          </div>
+          {withMark("dueDate", field("dueDate", `${tc("dueDate")} ${tm("optional")}`, dateInput("dueDate", false)))}
           {futureDateNote}
         </>
       )}
 
-      {field(
+      {withMark(
         "notes",
-        `${tm("notes")} ${tm("optional")}`,
-        <textarea {...a11y("notes")} defaultValue={v.notes ?? ""} rows={2} className={inputClass} />,
+        field(
+          "notes",
+          `${tm("notes")} ${tm("optional")}`,
+          <textarea {...a11y("notes")} defaultValue={v.notes ?? ""} onChange={track("notes")} rows={2} className={inputClass} />,
+        ),
       )}
 
       <div aria-live="polite">

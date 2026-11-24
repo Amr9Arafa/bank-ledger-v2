@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { db, type Executor } from "../db/client.ts";
 import { bankAccounts } from "../db/schema.ts";
 
@@ -12,6 +12,8 @@ export async function getActiveAccounts(organizationId: string, database: Execut
       receivesTransfers: bankAccounts.receivesTransfers,
       issuesCheques: bankAccounts.issuesCheques,
       openingDate: bankAccounts.openingDate,
+      // Enough to tell accounts apart on a button; the full number never goes to the browser.
+      last4: sql<string>`right(regexp_replace(${bankAccounts.accountNumber}, '[^0-9A-Za-z]', '', 'g'), 4)`,
     })
     .from(bankAccounts)
     .where(
