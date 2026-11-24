@@ -815,3 +815,78 @@ test("creating, ignoring and every undo clear the review state; only unmatched l
     assert.deepEqual([(await stateOf()).status, (await stateOf()).reviewState], ["unmatched", null]);
   });
 });
+
+// ---- Likely errors and records on the wrong account / direction ----
+
+test("a record dated more than the matching window before the statement's end is a likely error, not timing", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, importIt } = await setup(tx);
+    // No movements 11-02..11-10 at the bank: the balance stays at the opening 1000.00.
+    const { importId } = await importIt(statement("LONG", "C261101EGP1000,00", [], "C261110EGP1000,00"));
+    const old = await fee(m, user, account.id, tx, "2026-11-03"); // 7 days before the end
+    await fee(m, user, account.id, tx, "2026-11-08", 700); //     2 days before: plausibly booked later
+
+    let c = await m.closingCheck(user.organizationId, importId, tx);
+    assert.deepEqual(c.likelyErrors.rows.map((r) => [r.id, r.date]), [[old, "2026-11-03"]]);
+    assert.equal(c.likelyErrors.totalMinor, -500);
+    assert.deepEqual([c.appOnly.rows.length, c.appOnly.totalMinor], [1, -700]);
+    assert.deepEqual([c.differenceMinor, c.unexplainedMinor, c.reconciled], [-1200, 0, false]);
+    const rec = (await m.accountReconciliation(user.organizationId, tx)).find((r) => r.accountId === account.id)!;
+    assert.equal(rec.reconciledUntil, null);
+
+    // Fixing it (here: voiding the error) leaves only the recent record: reconciled again.
+    await m.voidTransaction(user, { transactionId: old, reason: "x" }, tx);
+    c = await m.closingCheck(user.organizationId, importId, tx);
+    assert.deepEqual([c.likelyErrors.rows.length, c.appOnly.rows.length, c.reconciled], [0, 1, true]);
+  });
+});
+
+test("a record carrying a line's bank reference on another account / in the other direction is suggested, and fixed on request", { skip }, async () => {
+  await inRollback(async (tx) => {
+    const { m, user, account, other, importIt } = await setup(tx);
+    const { importId } = await importIt(M4());
+    const lines = await m.listStatementLines(user.organizationId, importId, null, tx);
+    const outgoing = lines.find((l) => l.bankRef === "078OPDB3")!; // 30.00 debit on `account`
+    const interest = lines.find((l) => l.kind === "interest")!; //    short reference "INT 1"
+
+    const movement = async (type: "transfer_in" | "transfer_out", accountId: string, amountMinor: number, notes: string) => {
+      const r = await m.createMovement(user, { type, bankAccountId: accountId, transactionDate: "2026-11-05", amountMinor, partyName: "Delta", reference: null, notes }, { allowDuplicate: true }, tx);
+      return r.status === "created" ? r.ids[0] : "";
+    };
+    // The mistake: an *incoming* 30.00 on the *other* account, with the bank reference in its notes.
+    const wrong = await movement("transfer_in", other.id, 3000, "Transaction ID 078OPDB3");
+    // Not suggestions: a different amount, the right account and direction, a short reference.
+    await movement("transfer_in", other.id, 3001, "Transaction ID 078OPDB3");
+    await movement("transfer_out", account.id, 3000, "Transaction ID 078OPDB3");
+    await movement("transfer_in", other.id, 25, "INT 1");
+
+    const cross = await m.crossEntrySuggestions(user.organizationId, importId, tx);
+    assert.deepEqual(
+      (cross.get(outgoing.id) ?? []).map((c) => [c.transactionId, c.wrongAccount, c.wrongDirection]),
+      [[wrong, true, true]],
+    );
+    assert.equal(cross.has(interest.id), false);
+
+    // Never automatic: nothing changed yet.
+    assert.equal((await rowOf(m, tx, wrong)).status, "active");
+
+    const { voidedId, transactionId } = await m.fixWrongEntry(user, { lineId: outgoing.id, transactionId: wrong }, tx);
+    assert.equal(voidedId, wrong);
+    const voided = await rowOf(m, tx, wrong);
+    assert.equal(voided.status, "voided");
+    assert.match(voided.statusReason ?? "", /078OPDB3/);
+    const created = await rowOf(m, tx, transactionId);
+    assert.deepEqual(
+      [created.type, created.bankAccountId, created.amountMinor, created.transactionDate, created.reference, created.partyName, created.notes],
+      ["transfer_out", account.id, 3000, "2026-11-05", "078OPDB3", "Delta", "Transaction ID 078OPDB3"],
+    );
+    const after = (await m.listStatementLines(user.organizationId, importId, null, tx)).find((l) => l.id === outgoing.id)!;
+    assert.deepEqual([after.status, after.matchedId], ["created", transactionId]);
+
+    // Once fixed, the same fix is refused; so is a record that is not a cross-entry.
+    await assert.rejects(m.fixWrongEntry(user, { lineId: outgoing.id, transactionId: wrong }, tx), rejects("lineNotUnmatched"));
+    const fee = lines.find((l) => l.kind === "fee")!;
+    const unrelated = await movement("transfer_in", other.id, 500, "nothing to see");
+    await assert.rejects(m.fixWrongEntry(user, { lineId: fee.id, transactionId: unrelated }, tx), rejects("notACandidate"));
+  });
+});

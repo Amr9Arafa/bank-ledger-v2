@@ -3,6 +3,7 @@
 // each account fully reconciled?
 import { and, asc, eq, sql } from "drizzle-orm";
 import { addDays } from "../../lib/cheques.ts";
+import { MATCH_WINDOW_DAYS } from "../../lib/statements/match.ts";
 import { parseStatementFile } from "../../lib/statements/index.ts";
 import { db, type Executor } from "../db/client.ts";
 import { bankAccounts, statementImports, statementLines } from "../db/schema.ts";
@@ -29,17 +30,23 @@ export type ClosingCheck = {
   // Why they differ (all signed, as they move the balance):
   bankOnly: { count: number; totalMinor: number }; // unmatched lines: the app is missing them
   ignored: { count: number; totalMinor: number }; // lines marked as needing no record
-  appOnly: { rows: AppOnlyRow[]; totalMinor: number }; // app records the bank has not shown
+  // App records the bank has not shown yet, dated within the matching window of `date`:
+  // plausibly booked after the statement's end.
+  appOnly: { rows: AppOnlyRow[]; totalMinor: number };
+  // App records not on the statement although dated more than the matching window before
+  // its end: the bank would have booked them by now, so they are likely errors (wrong
+  // account, wrong direction, duplicate), not timing.
+  likelyErrors: { rows: AppOnlyRow[]; totalMinor: number };
   timing: { count: number; totalMinor: number }; // matched pairs on different sides of `date`
   unexplainedMinor: number; // 0 when the statements form a continuous chain
   unmatchedInImport: number;
-  // Every line of this statement is accounted for and nothing is unexplained.
+  // Every line is accounted for, nothing is unexplained and no record is a likely error.
   reconciled: boolean;
 };
 
 const lineSigned = sql`(case when l.direction = 'credit' then l.amount_minor else -l.amount_minor end)`;
 
-// app balance - bank balance = app-only - bank-only - ignored + timing (+ unexplained).
+// app balance - bank balance = app-only + likely errors - bank-only - ignored + timing (+ unexplained).
 // The unexplained part is non-zero only when the statements do not form a continuous chain
 // from the opening balance (a gap, or an opening balance that does not match the bank).
 export async function closingCheck(organizationId: string, importId: string, database: Executor = db): Promise<ClosingCheck> {
@@ -83,7 +90,7 @@ export async function closingCheck(organizationId: string, importId: string, dat
       and not exists (select 1 from statement_matches m where m.transaction_id = t.id)
     order by 3, t.created_at
   `);
-  const appOnly = appOnlyRows.map((r) => ({
+  const notOnStatement = appOnlyRows.map((r) => ({
     id: r.id,
     type: r.type,
     date: r.date,
@@ -92,6 +99,10 @@ export async function closingCheck(organizationId: string, importId: string, dat
     chequeNumber: r.cheque_number,
     signedMinor: Number(r.signed_minor),
   }));
+  // Older than the matching window before the statement's end: the bank would show it.
+  const errorBefore = addDays(date, -MATCH_WINDOW_DAYS);
+  const likelyErrors = notOnStatement.filter((r) => r.date < errorBefore);
+  const appOnly = notOnStatement.filter((r) => r.date >= errorBefore);
 
   // A matched pair whose two sides fall on different sides of `date`. Since a matched record
   // counts on its line's booking date (see bankDate), this is always empty; it stays as a
@@ -109,10 +120,13 @@ export async function closingCheck(organizationId: string, importId: string, dat
 
   const bankOnly = { count: Number(lineTotals.bank_only_count), totalMinor: Number(lineTotals.bank_only_total) };
   const ignored = { count: Number(lineTotals.ignored_count), totalMinor: Number(lineTotals.ignored_total) };
-  const appOnlyTotal = appOnly.reduce((sum, r) => sum + r.signedMinor, 0);
+  const total = (rows: AppOnlyRow[]) => rows.reduce((sum, r) => sum + r.signedMinor, 0);
+  const appOnlyTotal = total(appOnly);
+  const likelyErrorTotal = total(likelyErrors);
   const timingTotal = { count: Number(timing.count), totalMinor: Number(timing.total) };
   const differenceMinor = appMinor - imp.closingBalanceMinor;
-  const unexplainedMinor = differenceMinor - (appOnlyTotal - bankOnly.totalMinor - ignored.totalMinor + timingTotal.totalMinor);
+  const unexplainedMinor =
+    differenceMinor - (appOnlyTotal + likelyErrorTotal - bankOnly.totalMinor - ignored.totalMinor + timingTotal.totalMinor);
   const unmatchedInImport = Number(lineTotals.unmatched_in_import);
 
   return {
@@ -123,10 +137,11 @@ export async function closingCheck(organizationId: string, importId: string, dat
     bankOnly,
     ignored,
     appOnly: { rows: appOnly, totalMinor: appOnlyTotal },
+    likelyErrors: { rows: likelyErrors, totalMinor: likelyErrorTotal },
     timing: timingTotal,
     unexplainedMinor,
     unmatchedInImport,
-    reconciled: unmatchedInImport === 0 && unexplainedMinor === 0,
+    reconciled: unmatchedInImport === 0 && unexplainedMinor === 0 && likelyErrors.length === 0,
   };
 }
 

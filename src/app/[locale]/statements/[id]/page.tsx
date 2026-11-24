@@ -8,12 +8,12 @@ import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { formatDay } from "@/lib/dates";
 import { formatEGP } from "@/lib/money";
-import { chequeSerial } from "@/lib/statements/match";
+import { chequeSerial, MATCH_WINDOW_DAYS } from "@/lib/statements/match";
 import { hasRole } from "@/server/auth/roles";
 import { getCurrentUser } from "@/server/auth/session";
 import { CREDIT_TYPES, type TransactionType } from "@/server/db/schema";
 import { getActiveAccounts } from "@/server/ledger/accounts";
-import { getImportSuggestions } from "@/server/ledger/reconcile";
+import { crossEntrySuggestions, getImportSuggestions } from "@/server/ledger/reconcile";
 import { closingCheck, importWarnings } from "@/server/ledger/statementChecks";
 import { getStatementImport, type ImportWarning, listStatementLines } from "@/server/ledger/statements";
 
@@ -34,13 +34,15 @@ export default async function StatementImportPage({ params }: PageProps<"/[local
   if (!statement) notFound();
   const canWrite = hasRole(user, "accountant");
 
-  const [allLines, { suggestions, rows }, accounts, check, warnings] = await Promise.all([
+  const [allLines, { suggestions, rows }, accounts, check, warnings, cross] = await Promise.all([
     listStatementLines(user.organizationId, id),
     getImportSuggestions(user.organizationId, id),
     getActiveAccounts(user.organizationId),
     closingCheck(user.organizationId, id),
     importWarnings(user.organizationId, id),
+    crossEntrySuggestions(user.organizationId, id),
   ]);
+  const accountName = (accountId: string) => accounts.find((a) => a.id === accountId)?.name ?? "";
   const otherAccounts = accounts.filter((a) => a.id !== statement.bankAccountId).map((a) => ({ id: a.id, name: a.name }));
   const canIssueCheques = accounts.find((a) => a.id === statement.bankAccountId)?.issuesCheques ?? false;
 
@@ -109,6 +111,16 @@ export default async function StatementImportPage({ params }: PageProps<"/[local
             }
           : null,
       createDefaults,
+      crossSuggestions: (cross.get(l.id) ?? []).map((c) => ({
+        transactionId: c.transactionId,
+        accountName: accountName(c.bankAccountId),
+        type: c.type,
+        date: c.date,
+        signedMinor: c.signedMinor,
+        name: c.name,
+        wrongAccount: c.wrongAccount,
+        wrongDirection: c.wrongDirection,
+      })),
     };
   });
 
@@ -183,7 +195,7 @@ export default async function StatementImportPage({ params }: PageProps<"/[local
           </div>
         </div>
 
-        {(warnings.length > 0 || check.unexplainedMinor !== 0) && (
+        {(warnings.length > 0 || check.unexplainedMinor !== 0 || check.likelyErrors.rows.length > 0) && (
           <ul className="space-y-1 text-sm">
             {warnings.map((w) => (
               <li key={w.code} className="rounded bg-warning-tint px-2 py-1 text-warning">{warningText(w)}</li>
@@ -191,6 +203,24 @@ export default async function StatementImportPage({ params }: PageProps<"/[local
             {check.unexplainedMinor !== 0 && (
               <li className="rounded bg-debit-tint px-2 py-1 text-debit">
                 {tk("unexplained")} {money(check.unexplainedMinor)}: {tk("unexplainedNote")}
+              </li>
+            )}
+            {check.likelyErrors.rows.length > 0 && (
+              <li className="rounded bg-debit-tint px-2 py-1 text-debit">
+                <p className="font-medium">
+                  {tk("likelyErrors", { count: check.likelyErrors.rows.length, days: MATCH_WINDOW_DAYS })}
+                </p>
+                <ul className="mt-1 space-y-0.5 text-xs">
+                  {check.likelyErrors.rows.map((r) => (
+                    <li key={r.id} className="flex flex-wrap gap-x-2 tabular-nums">
+                      <span>{day(r.date)}</span>
+                      <span>{tl(`types.${r.type as TransactionType}`)}{r.chequeNumber && <> #<bdi>{r.chequeNumber}</bdi></>}</span>
+                      <bdi>{r.partyName ?? r.description ?? ""}</bdi>
+                      <span>{money(r.signedMinor)}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1 text-xs">{tk("likelyErrorsNote")}</p>
               </li>
             )}
           </ul>
@@ -216,6 +246,12 @@ export default async function StatementImportPage({ params }: PageProps<"/[local
                 <>
                   <dt>{tk("appOnly", { count: check.appOnly.rows.length })}</dt>
                   <dd className="text-end">{money(check.appOnly.totalMinor)}</dd>
+                </>
+              )}
+              {check.likelyErrors.rows.length > 0 && (
+                <>
+                  <dt className="text-debit">{tk("likelyErrorsShort", { count: check.likelyErrors.rows.length })}</dt>
+                  <dd className="text-end text-debit">{money(check.likelyErrors.totalMinor)}</dd>
                 </>
               )}
               {check.timing.count > 0 && (

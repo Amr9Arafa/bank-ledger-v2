@@ -4,6 +4,7 @@ import { type ReactNode, useActionState, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   backToSuggestionsAction,
+  fixWrongEntryAction,
   confirmMatchAction,
   confirmUniqueAction,
   createAllFeesAction,
@@ -64,6 +65,9 @@ export type ReviewLine = {
     clearedCheque: boolean;
   } | null;
   createDefaults: CreateDefaults;
+  // Records elsewhere that carry this line's bank reference: possibly the wrong account or
+  // direction. Shown with a fix; never applied on their own.
+  crossSuggestions: CrossSuggestion[];
 };
 
 type Props = {
@@ -191,6 +195,9 @@ export default function StatementReview({ importId, lines, canWrite, otherAccoun
                         <LineAction action={backToSuggestionsAction} lineId={l.id} label={t("missing.backToSuggestions")} variant="link" />
                       </div>
                     )}
+                    {l.crossSuggestions.map((c) => (
+                      <CrossFix key={c.transactionId} lineId={l.id} suggestion={c} canWrite={canWrite} />
+                    ))}
                   </div>
                   {canWrite && (
                     <div className="flex flex-col gap-2 lg:w-80 lg:shrink-0">
@@ -369,6 +376,9 @@ function DecisionCard({ line, canWrite }: { line: ReviewLine; canWrite: boolean 
   return (
     <article className="rounded-md border border-border p-3">
       <Comparison line={line} candidate={chosen} />
+      {line.crossSuggestions.map((c) => (
+        <CrossFix key={c.transactionId} lineId={line.id} suggestion={c} canWrite={canWrite} />
+      ))}
       {picking && line.candidates.length > 1 && (
         <label className="mt-3 block text-sm">
           <span className="mb-1 block text-foreground-secondary">{t("pick")}</span>
@@ -441,6 +451,64 @@ function LineAction({
 }
 
 // One line, compactly: date, amount, what the bank says.
+export type CrossSuggestion = {
+  transactionId: string;
+  accountName: string;
+  type: string;
+  date: string;
+  signedMinor: number;
+  name: string | null;
+  wrongAccount: boolean;
+  wrongDirection: boolean;
+};
+
+// "Possibly entered on the wrong account / direction": shows the record and offers the fix
+// (void it, create the right one from this line) behind an explicit confirmation.
+function CrossFix({ lineId, suggestion: s, canWrite }: { lineId: string; suggestion: CrossSuggestion; canWrite: boolean }) {
+  const t = useTranslations("statements.review.cross");
+  const tl = useTranslations("ledger");
+  const te = useTranslations("errors");
+  const { day, money } = useFormat();
+  const [confirming, setConfirming] = useState(false);
+  const [state, formAction, pending] = useActionState<InlineActionState, FormData>(fixWrongEntryAction, {});
+  if (state.done) return null;
+  const reason = s.wrongAccount && s.wrongDirection ? t("both") : s.wrongAccount ? t("account") : t("direction");
+  return (
+    <div className="mt-2 rounded-md border border-warning bg-warning-tint p-2 text-sm text-warning">
+      <p className="font-medium">{reason}</p>
+      <p className="text-xs text-foreground">
+        {tl(`types.${s.type}` as "types.fee")} · <bdi>{s.accountName}</bdi> · <span className="tabular-nums">{day(s.date)}</span> ·{" "}
+        <span className="tabular-nums">{money(s.signedMinor)}</span>
+        {s.name && <> · <bdi>{s.name}</bdi></>}
+      </p>
+      <p className="text-xs text-foreground-secondary">{t("why")}</p>
+      {canWrite &&
+        (confirming ? (
+          <form action={formAction} className="mt-2 flex flex-wrap items-center gap-2">
+            <input type="hidden" name="lineId" value={lineId} />
+            <input type="hidden" name="transactionId" value={s.transactionId} />
+            <p className="w-full text-xs text-foreground">{t("note")}</p>
+            <button type="submit" disabled={pending} className={`${primaryButton} px-3 py-1`}>
+              {t("confirm")}
+            </button>
+            <button type="button" onClick={() => setConfirming(false)} className={`${secondaryButton} px-3 py-1`}>
+              {t("keep")}
+            </button>
+          </form>
+        ) : (
+          <button type="button" onClick={() => setConfirming(true)} className="mt-1 text-xs text-navy underline-offset-2 hover:underline">
+            {t("fix")}
+          </button>
+        ))}
+      {state.error && (
+        <p role="alert" className="mt-1 text-xs text-debit">
+          {te(state.error as "notACandidate")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function BankSummary({ line }: { line: ReviewLine }) {
   const tk = useTranslations("statements.kinds");
   const { day, money } = useFormat();

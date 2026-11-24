@@ -583,7 +583,10 @@
       "unexplained": "Unexplained",
       "unexplainedNote": "No line explains this: a statement may be missing, or the opening balance differs from the bank.",
       "reconciled": "Fully reconciled: every line is accounted for.",
-      "notReconciled": "Not reconciled yet: {count, plural, one {# line} other {# lines}} to review."
+      "notReconciled": "Not reconciled yet: {count, plural, one {# line} other {# lines}} to review.",
+      "likelyErrors": "{count, plural, one {# record is} other {# records are}} in the app but not on the statement, although dated more than {days} days before its end: likely an error (wrong account, wrong direction or a duplicate), not timing.",
+      "likelyErrorsShort": "{count, plural, one {# likely error} other {# likely errors}} (in the app, not on the statement)",
+      "likelyErrorsNote": "The account does not count as reconciled until each one is fixed or appears on a statement."
     },
     "review": {
       "progress": "{done} of {total} lines resolved",
@@ -645,6 +648,16 @@
         "restore": "Restore line",
         "undoMatchedNote": "Removes the match. A cheque cleared by it goes back to outstanding.",
         "undoCreatedNote": "Voids the record created from this line (a cheque is cancelled). Records are never deleted."
+      },
+      "cross": {
+        "account": "Possibly entered on the wrong account",
+        "direction": "Possibly entered in the wrong direction",
+        "both": "Possibly entered on the wrong account and in the wrong direction",
+        "why": "Its notes carry this line's bank reference and the amount is the same.",
+        "fix": "Fix: void it and create the right record from this line",
+        "note": "Voids the record above and creates the right one from this statement line, linked to it. Both are in the audit log.",
+        "confirm": "Void and create",
+        "keep": "Keep"
       }
     }
   }

@@ -35,6 +35,7 @@ const lineColumns = {
   bankRef: statementLines.bankRef,
   chequeRef: statementLines.chequeRef,
   counterparty: statementLines.counterparty,
+  description: statementLines.description,
   status: statementLines.status,
   reviewState: statementLines.reviewState,
 };
@@ -462,4 +463,111 @@ export async function matchedLineIds(tx: Executor, importId: string): Promise<st
     .innerJoin(statementMatches, eq(statementMatches.statementLineId, statementLines.id))
     .where(eq(statementLines.importId, importId));
   return rows.map((r) => r.id);
+}
+
+// ---- Records entered on the wrong account or in the wrong direction ----
+
+// Only plain movements can be "the wrong record": cheques are cancelled, not voided, and each
+// half of an internal transfer legitimately carries the same bank reference as the other
+// account's line.
+const FIXABLE_TYPES = ["transfer_in", "transfer_out", "fee", "interest", "deposit"] as const;
+// Shorter references (e.g. "INT 1") are too common to identify one movement.
+const MIN_REF_LENGTH = 6;
+
+export type CrossEntrySuggestion = {
+  transactionId: string;
+  bankAccountId: string;
+  type: string;
+  date: string;
+  signedMinor: number;
+  name: string | null;
+  wrongAccount: boolean;
+  wrongDirection: boolean;
+};
+
+const crossConditions = (lineAccount: string, lineDirection: "credit" | "debit", ref: string, amountMinor: number) => sql`
+  t.amount_minor = ${amountMinor}
+  and t.status = 'active'
+  and t.type in (${sql.raw(FIXABLE_TYPES.map((x) => `'${x}'`).join(", "))})
+  and strpos(coalesce(t.notes, '') || ' ' || coalesce(t.reference, ''), ${ref}) > 0
+  and not exists (select 1 from statement_matches m where m.transaction_id = t.id)
+  and (t.bank_account_id <> ${lineAccount}
+       or (t.type in ('transfer_in', 'deposit', 'interest')) <> (${lineDirection} = 'credit'))`;
+
+// For each open line of an import: unmatched records whose notes or reference contain the
+// line's exact bank reference, with the same amount, but on another account or in the other
+// direction. Shown as "possibly entered on the wrong account / direction"; never applied
+// automatically.
+export async function crossEntrySuggestions(organizationId: string, importId: string, database: Executor = db) {
+  const lines = await database
+    .select(lineColumns)
+    .from(statementLines)
+    .where(and(eq(statementLines.organizationId, organizationId), eq(statementLines.importId, importId), eq(statementLines.status, "unmatched")));
+  const result = new Map<string, CrossEntrySuggestion[]>();
+  for (const line of lines) {
+    if (line.bankRef.trim().length < MIN_REF_LENGTH) continue;
+    const rows = await database.execute<{ id: string; bank_account_id: string; type: string; d: string; amount_minor: string; name: string | null }>(sql`
+      select t.id, t.bank_account_id, t.type, t.transaction_date::text d, t.amount_minor, coalesce(t.party_name, t.description) name
+      from transactions t
+      where t.organization_id = ${organizationId} and ${crossConditions(line.bankAccountId, line.direction, line.bankRef.trim(), line.amountMinor)}`);
+    if (rows.length === 0) continue;
+    result.set(
+      line.id,
+      rows.map((r) => {
+        const credit = r.type === "transfer_in" || r.type === "deposit" || r.type === "interest";
+        return {
+          transactionId: r.id,
+          bankAccountId: r.bank_account_id,
+          type: r.type,
+          date: r.d,
+          signedMinor: credit ? Number(r.amount_minor) : -Number(r.amount_minor),
+          name: r.name,
+          wrongAccount: r.bank_account_id !== line.bankAccountId,
+          wrongDirection: credit !== (line.direction === "credit"),
+        };
+      }),
+    );
+  }
+  return result;
+}
+
+// The one-click fix for a cross-entry suggestion: void the wrong record and create the right
+// one from the statement line (linked to it), in one transaction. The pairing is checked
+// again here, whatever the page sent.
+export async function fixWrongEntry(
+  user: LedgerUser,
+  input: { lineId: string; transactionId: string },
+  database: Executor = db,
+) {
+  return database.transaction(async (tx) => {
+    const line = await lockLine(tx, user, input.lineId);
+    if (line.status !== "unmatched") throw new LedgerError("lineNotUnmatched");
+    const ref = line.bankRef.trim();
+    if (ref.length < MIN_REF_LENGTH) throw new LedgerError("notACandidate");
+    const [row] = await tx.execute<{ id: string; party_name: string | null; description: string | null; notes: string | null }>(sql`
+      select t.id, t.party_name, t.description, t.notes from transactions t
+      where t.id = ${input.transactionId} and t.organization_id = ${user.organizationId}
+        and ${crossConditions(line.bankAccountId, line.direction, ref, line.amountMinor)}
+      for update`);
+    if (!row) throw new LedgerError("notACandidate");
+
+    await voidTransaction(
+      user,
+      { transactionId: row.id, reason: `Entered on the wrong account or direction: replaced from statement line (bank ref ${ref})` },
+      tx,
+    );
+    const common = { lineId: line.id, notes: row.notes };
+    const record: CreateFromLineInput =
+      line.kind === "fee" && line.direction === "debit"
+        ? { ...common, type: "fee", description: (row.description ?? row.party_name ?? line.description).slice(0, 200) }
+        : line.kind === "interest" && line.direction === "credit"
+          ? { ...common, type: "interest", description: (row.description ?? row.party_name ?? line.description).slice(0, 200) }
+          : {
+              ...common,
+              type: line.direction === "credit" ? "transfer_in" : "transfer_out",
+              partyName: (row.party_name ?? line.counterparty ?? row.description ?? line.description).slice(0, 200),
+            };
+    const { transactionId } = await createFromLine(user, record, tx);
+    return { voidedId: row.id, transactionId };
+  });
 }

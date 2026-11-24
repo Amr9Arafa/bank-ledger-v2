@@ -20,6 +20,7 @@ import {
   confirmUniqueSuggestions,
   createAllFromImport,
   createFromLine,
+  fixWrongEntry,
   ignoreLine,
   setReviewState,
   unignoreLine,
@@ -226,4 +227,10 @@ export async function notInAppAction(_previous: InlineActionState, formData: For
 
 export async function backToSuggestionsAction(_previous: InlineActionState, formData: FormData) {
   return matchingAction(lineOnly, formData, (user, input) => setReviewState(user, { lineId: input.lineId, state: null }));
+}
+
+// "Possibly entered on the wrong account / direction": void the record, create the right one
+// from the line. Only when the user confirms; the ledger checks the pairing again.
+export async function fixWrongEntryAction(_previous: InlineActionState, formData: FormData) {
+  return matchingAction(lineAndRow, formData, (user, input) => fixWrongEntry(user, input));
 }
